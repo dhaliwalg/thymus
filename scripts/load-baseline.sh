@@ -25,9 +25,7 @@ fi
 # Baseline exists — compute compact summary
 MODULE_COUNT=$(jq '.modules | length' "$BASELINE" 2>/dev/null || echo "0")
 INVARIANT_COUNT=0
-if [ -f "$AIS_DIR/invariants.json" ]; then
-  INVARIANT_COUNT=$(jq '.invariants | length' "$AIS_DIR/invariants.json" 2>/dev/null || echo "0")
-elif [ -f "$AIS_DIR/invariants.yml" ]; then
+if [ -f "$AIS_DIR/invariants.yml" ]; then
   INVARIANT_COUNT=$(grep -c "^  - id:" "$AIS_DIR/invariants.yml" 2>/dev/null || echo "0")
 fi
 
