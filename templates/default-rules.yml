@@ -34,7 +34,9 @@ nextjs:
     type: boundary
     severity: error
     description: "Next.js pages must not import directly from the database layer"
-    source_glob: "pages/**,app/**"
+    source_globs:
+      - "pages/**"
+      - "app/**"
     forbidden_imports: ["prisma", "src/db/**", "mongoose", "sequelize"]
     reasoning: "Database access in pages bypasses the API layer and breaks SSR safety"
 
@@ -48,7 +50,9 @@ nextjs:
     type: boundary
     severity: error
     description: "Client components must not import server-only modules"
-    source_glob: "**/*.client.ts,**/*.client.tsx"
+    source_globs:
+      - "**/*.client.ts"
+      - "**/*.client.tsx"
     forbidden_imports: ["server-only", "fs", "path", "child_process"]
 
 express:
@@ -77,7 +81,9 @@ django:
     type: boundary
     severity: error
     description: "Django ORM queries belong in models or managers, not in views"
-    source_glob: "**/views.py,**/views/**"
+    source_globs:
+      - "**/views.py"
+      - "**/views/**"
     forbidden_pattern: "(objects\\.filter|objects\\.get|objects\\.create|objects\\.all)"
 
   - id: django-business-logic-in-services
