@@ -3,14 +3,14 @@
 ## Phase 0 — Foundation & Scaffolding
 
 - [x] Create directory structure
-- [ ] Write all 5 skill stubs
-- [ ] Write hooks/hooks.json
-- [ ] Write scripts/load-baseline.sh
-- [ ] Write scripts/analyze-edit.sh
-- [ ] Write scripts/session-report.sh
-- [ ] Verify plugin loads
-- [ ] Verify all 5 skills appear
-- [ ] Verify hooks fire on Edit/Write
+- [x] Write all 5 skill stubs
+- [x] Write hooks/hooks.json
+- [x] Write scripts/load-baseline.sh
+- [x] Write scripts/analyze-edit.sh
+- [x] Write scripts/session-report.sh
+- [x] Verify plugin loads
+- [x] Verify all 5 skills appear
+- [x] Verify hooks fire on Edit/Write
 
 ## Backlog
 

@@ -1,0 +1,11 @@
+{
+  "name": "healthy-project",
+  "dependencies": {
+    "express": "^4.18.0",
+    "prisma": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}
