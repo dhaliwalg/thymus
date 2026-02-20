@@ -83,6 +83,75 @@ fi
 # Test 6: stats.errors and stats.warnings are integers
 check_json "stats.errors is a number" ".stats.errors | type" "number" "$output"
 
+# --- generate-report.sh ---
+echo ""
+echo "generate-report.sh:"
+
+# Setup: run scan on unhealthy project
+SCAN_FILE=$(mktemp)
+(cd "$UNHEALTHY" && bash "$ROOT/scripts/scan-project.sh" > "$SCAN_FILE")
+
+# Test: report file is created
+REPORT_FILE="$UNHEALTHY/.ais/report.html"
+rm -f "$REPORT_FILE"
+(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" > /dev/null 2>&1) || true
+
+if [ -f "$REPORT_FILE" ]; then
+  echo "  ✓ report.html created"
+  ((passed++)) || true
+else
+  echo "  ✗ report.html not created"
+  ((failed++)) || true
+fi
+
+# Test: HTML contains expected sections
+if grep -q "AIS Architectural Health" "$REPORT_FILE" 2>/dev/null; then
+  echo "  ✓ report contains title"
+  ((passed++)) || true
+else
+  echo "  ✗ report missing title"
+  ((failed++)) || true
+fi
+
+if grep -q "boundary-routes-no-direct-db" "$REPORT_FILE" 2>/dev/null; then
+  echo "  ✓ report contains violation rule id"
+  ((passed++)) || true
+else
+  echo "  ✗ report missing violation data"
+  ((failed++)) || true
+fi
+
+# Test: stdout is valid JSON with score field
+REPORT_OUTPUT=$(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" 2>/dev/null)
+if echo "$REPORT_OUTPUT" | jq -e '.score' > /dev/null 2>&1; then
+  echo "  ✓ stdout JSON contains score"
+  ((passed++)) || true
+else
+  echo "  ✗ stdout JSON missing score"
+  ((failed++)) || true
+fi
+
+# Test: score is between 0 and 100
+SCORE_VAL=$(echo "$REPORT_OUTPUT" | jq '.score')
+if [ "$SCORE_VAL" -ge 0 ] && [ "$SCORE_VAL" -le 100 ] 2>/dev/null; then
+  echo "  ✓ score is in valid range (0-100)"
+  ((passed++)) || true
+else
+  echo "  ✗ score out of range: $SCORE_VAL"
+  ((failed++)) || true
+fi
+
+# Test: history snapshot was written
+if ls "$UNHEALTHY/.ais/history/"*.json > /dev/null 2>&1; then
+  echo "  ✓ history snapshot written"
+  ((passed++)) || true
+else
+  echo "  ✗ no history snapshot written"
+  ((failed++)) || true
+fi
+
+rm -f "$SCAN_FILE"
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
