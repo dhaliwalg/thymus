@@ -123,7 +123,7 @@ get_import_frequency() {
 
   find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
     "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
-  | xargs grep -hoE "$pattern" 2>/dev/null \
+  | ( xargs grep -hoE "$pattern" 2>/dev/null || true ) \
   | sed "s/from ['\"]//" | sed "s/['\"]$//" \
   | sort | uniq -c | sort -rn \
   | head -20 \
@@ -145,8 +145,8 @@ get_cross_module_imports() {
 
       find "$module_dir" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
         "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
-      | xargs grep -hoE "from ['\"\`]\.\./[a-z_-]+" 2>/dev/null \
-      | grep -oE "\.\./[a-z_-]+" | sed 's|\.\./||' \
+      | ( xargs grep -hoE "from ['\"\`]\.\./[a-z_-]+" 2>/dev/null || true ) \
+      | ( grep -oE "\.\./[a-z_-]+" || true ) | sed 's|\.\./||' \
       | sort -u \
       | while read -r to_module; do
           echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
