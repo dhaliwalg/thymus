@@ -31,6 +31,19 @@
 - [x] Enhance scripts/load-baseline.sh (reads invariants.json, shows recent violation count)
 - [x] End-to-end verification: all Phase 2 tests pass, hooks < 2s
 
+## Phase 3 — Health Dashboard & Reporting
+
+- [x] YAML migration: convert test fixture invariants.json → invariants.yml
+- [x] YAML migration: update analyze-edit.sh to use load_invariants() + invariants.yml
+- [x] YAML migration: update load-baseline.sh to invariants.yml
+- [x] Docs: update CLAUDE.md + ROADMAP.md schema examples (scope_glob_exclude)
+- [x] Implement scripts/scan-project.sh (batch invariant checker)
+- [x] Implement skills/scan/SKILL.md (full implementation)
+- [x] Implement agents/debt-projector.md (trend analysis agent)
+- [x] Implement scripts/generate-report.sh (self-contained HTML report)
+- [x] Implement skills/health/SKILL.md (full Claude-narrated orchestration)
+- [x] End-to-end verification: verify-phase3.sh passes
+
 ## Backlog
 
-See ROADMAP.md for Phase 3+ tasks.
+See ROADMAP.md for Phase 4+ tasks.
