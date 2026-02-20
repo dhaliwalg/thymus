@@ -42,6 +42,8 @@ echo "[$TIMESTAMP] Checking $REL_PATH" >> "$DEBUG_LOG"
 # --- Glob → regex conversion ---
 # src/routes/** → ^src/routes/.*$
 # src/**/*.ts  → ^src/.*/[^/]*\.ts$
+# TODO(Phase 3): extended glob negation !(foo)/** is not handled — scope_glob rules using
+# this syntax silently match nothing. Requires extglob-aware conversion or a blocklist approach.
 glob_to_regex() {
   printf '%s' "$1" \
     | sed \
@@ -80,10 +82,9 @@ import_is_forbidden() {
   count=$(echo "$invariant_json" | jq '.forbidden_imports | length' 2>/dev/null || echo 0)
   for ((f=0; f<count; f++)); do
     pattern=$(echo "$invariant_json" | jq -r ".forbidden_imports[$f]")
-    # Direct match, glob match, or exact package name
+    # Glob match (handles src/db/**) or exact package name match
     if path_matches "$import" "$pattern" \
-       || [ "$import" = "$pattern" ] \
-       || echo "$import" | grep -qF "$pattern" 2>/dev/null; then
+       || [ "$import" = "$pattern" ]; then
       return 0
     fi
   done
