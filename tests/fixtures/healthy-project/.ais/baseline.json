@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "captured_at": "2026-02-20T00:00:00",
+  "project_root": ".",
+  "language": "typescript",
+  "modules": [
+    "src/routes",
+    "src/services",
+    "src/repositories",
+    "src/models",
+    "src/db",
+    "src/utils"
+  ]
+}
