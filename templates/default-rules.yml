@@ -1,0 +1,100 @@
+# AIS Default Rules Library
+# Claude references this during /ais:baseline to supplement invariant-detector output.
+# Rules are organized by category. Claude selects relevant sections based on detected framework.
+
+version: "1.0"
+
+generic:
+  - id: generic-no-circular-deps
+    type: structure
+    severity: error
+    description: "No circular module dependencies"
+    note: "Implemented in Phase 3 /ais:scan — placeholder only"
+
+  - id: generic-test-colocation
+    type: convention
+    severity: warning
+    description: "Tests must be colocated with source files"
+    rule: "For every src/**/*.ts, there should be a src/**/*.test.ts"
+
+  - id: generic-single-responsibility-dirs
+    type: structure
+    severity: info
+    description: "Each directory should have a single clear responsibility"
+    rule: "Directories should not mix concerns (e.g. no routes + services in same dir)"
+
+  - id: generic-no-deep-nesting
+    type: structure
+    severity: info
+    description: "Source files should not be nested more than 4 levels deep"
+    rule: "No src file should be at depth > 4 from project root"
+
+nextjs:
+  - id: nextjs-no-db-in-pages
+    type: boundary
+    severity: error
+    description: "Next.js pages must not import directly from the database layer"
+    source_glob: "pages/**,app/**"
+    forbidden_imports: ["prisma", "src/db/**", "mongoose", "sequelize"]
+    reasoning: "Database access in pages bypasses the API layer and breaks SSR safety"
+
+  - id: nextjs-api-routes-only-in-pages-api
+    type: structure
+    severity: warning
+    description: "API route handlers belong in pages/api or app/api only"
+    rule: "Files matching the Next.js route handler pattern should live under pages/api/** or app/api/**"
+
+  - id: nextjs-no-server-imports-in-client
+    type: boundary
+    severity: error
+    description: "Client components must not import server-only modules"
+    source_glob: "**/*.client.ts,**/*.client.tsx"
+    forbidden_imports: ["server-only", "fs", "path", "child_process"]
+
+express:
+  - id: express-middleware-in-middleware-dir
+    type: convention
+    severity: warning
+    description: "Express middleware must live in the middleware/ directory"
+    rule: "Files exporting Express middleware functions should be in src/middleware/**"
+
+  - id: express-routes-no-business-logic
+    type: boundary
+    severity: warning
+    description: "Route handlers should delegate to controllers, not contain business logic"
+    source_glob: "src/routes/**"
+    forbidden_imports: ["src/db/**", "src/repositories/**"]
+    allowed_imports: ["src/controllers/**", "src/middleware/**"]
+
+  - id: express-centralized-error-handler
+    type: convention
+    severity: info
+    description: "Error handling should be centralized, not in individual route handlers"
+    rule: "try/catch blocks in route handlers should call next(err), not respond directly"
+
+django:
+  - id: django-orm-in-models-only
+    type: boundary
+    severity: error
+    description: "Django ORM queries belong in models or managers, not in views"
+    source_glob: "**/views.py,**/views/**"
+    forbidden_pattern: "(objects\\.filter|objects\\.get|objects\\.create|objects\\.all)"
+
+  - id: django-business-logic-in-services
+    type: convention
+    severity: warning
+    description: "Business logic should live in service classes, not views"
+    rule: "Complex logic in views should be extracted to services/ or managers/"
+
+fastapi:
+  - id: fastapi-dependency-injection
+    type: convention
+    severity: info
+    description: "FastAPI route dependencies should use Depends() injection"
+    rule: "Routes should accept dependencies via Depends() rather than instantiating them directly"
+
+  - id: fastapi-schemas-in-schemas-module
+    type: structure
+    severity: warning
+    description: "Pydantic request/response schemas should be in a dedicated schemas module"
+    rule: "Classes inheriting from BaseModel should live in schemas/ or models/"
