@@ -243,7 +243,10 @@ invariants:
     severity: error
     description: "No raw SQL strings outside the db layer"
     forbidden_pattern: "(SELECT|INSERT|UPDATE|DELETE)\\s+(FROM|INTO|SET)"
-    scope_glob: "src/!(db)/**"
+    scope_glob: "src/**"
+    scope_glob_exclude:
+      - "src/db/**"          # blocklist — files matching these globs are skipped
+                             # Replaces bash extglob negation !(foo)/** which is not portable
 
   - id: dependency-scope
     type: dependency
