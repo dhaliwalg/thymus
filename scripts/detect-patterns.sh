@@ -45,7 +45,7 @@ naming_patterns=$(
   find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" \) \
     "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
   | while read -r f; do basename "$f"; done \
-  | grep -oE '\.[a-z]+\.[a-z]+$' \
+  | { grep -oE '\.[a-z]+\.[a-z]+$' || true; } \
   | sort | uniq -c | sort -rn \
   | awk '{print $2}' \
   | head -20 \
