@@ -14,7 +14,7 @@ Generate a full architectural health report. Follow these steps exactly:
 ## Step 1: Run the full-project scan
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-scan-$$.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-scan.json
 ```
 
 ## Step 2: Check for history (debt projection)
@@ -35,7 +35,7 @@ If fewer than 2 snapshots exist, set `PROJECTION` to empty string.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-report.sh \
-  --scan /tmp/ais-health-scan-$$.json \
+  --scan /tmp/ais-health-scan.json \
   [--projection '$PROJECTION']
 ```
 
@@ -43,7 +43,7 @@ Include `--projection` only if projection data is available.
 
 ## Step 4: Narrate the results
 
-Read the scan JSON from `/tmp/ais-health-scan-$$.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
+Read the scan JSON from `/tmp/ais-health-scan.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
 
 ```
 📊 Health Score: <score>/100 <arrow>
@@ -66,4 +66,4 @@ Full report opened: .ais/report.html
 
 If there are no violations, say: `✅ Clean — no architectural violations detected. Health score: 100/100`
 
-Clean up temp file: `rm -f /tmp/ais-health-scan-$$.json`
+Clean up temp file: `rm -f /tmp/ais-health-scan.json`

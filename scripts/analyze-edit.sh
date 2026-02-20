@@ -40,6 +40,11 @@ load_invariants() {
   python3 - "$yml" "$cache" <<'PYEOF'
 import sys, json, re
 
+def strip_val(s):
+    """Strip inline comments (2+ spaces before #) and surrounding quotes."""
+    s = re.sub(r'\s{2,}#.*$', '', s)
+    return s.strip('"\'')
+
 def parse(src, dst):
     invariants = []
     current = None
@@ -51,14 +56,14 @@ def parse(src, dst):
             if m:
                 if current:
                     invariants.append(current)
-                current = {'id': m.group(1)}
+                current = {'id': strip_val(m.group(1))}
                 list_key = None
                 continue
             if current is None:
                 continue
             m = re.match(r'^      - ["\']?(.*?)["\']?\s*$', line)
             if m and list_key is not None:
-                current[list_key].append(m.group(1))
+                current[list_key].append(strip_val(m.group(1)))
                 continue
             m = re.match(r'^    ([a-z_]+):\s*$', line)
             if m:
@@ -67,7 +72,7 @@ def parse(src, dst):
                 continue
             m = re.match(r'^    ([a-z_]+):\s*["\']?(.*?)["\']?\s*$', line)
             if m:
-                current[m.group(1)] = m.group(2)
+                current[m.group(1)] = strip_val(m.group(2))
                 list_key = None
                 continue
     if current:

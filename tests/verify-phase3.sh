@@ -91,11 +91,15 @@ echo "generate-report.sh:"
 SCAN_FILE=$(mktemp)
 (cd "$UNHEALTHY" && bash "$ROOT/scripts/scan-project.sh" > "$SCAN_FILE")
 
-# Test: report file is created
 REPORT_FILE="$UNHEALTHY/.ais/report.html"
 rm -f "$REPORT_FILE"
-(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" > /dev/null 2>&1) || true
 
+# Count snapshots before, call generate-report once, count after
+SNAP_BEFORE=$(find "$UNHEALTHY/.ais/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+REPORT_OUTPUT=$(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" 2>/dev/null)
+SNAP_AFTER=$(find "$UNHEALTHY/.ais/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+
+# Test: report file is created
 if [ -f "$REPORT_FILE" ]; then
   echo "  ✓ report.html created"
   ((passed++)) || true
@@ -122,7 +126,6 @@ else
 fi
 
 # Test: stdout is valid JSON with score field
-REPORT_OUTPUT=$(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" 2>/dev/null)
 if echo "$REPORT_OUTPUT" | jq -e '.score' > /dev/null 2>&1; then
   echo "  ✓ stdout JSON contains score"
   ((passed++)) || true
@@ -141,12 +144,12 @@ else
   ((failed++)) || true
 fi
 
-# Test: history snapshot was written
-if ls "$UNHEALTHY/.ais/history/"*.json > /dev/null 2>&1; then
-  echo "  ✓ history snapshot written"
+# Test: a NEW history snapshot was written
+if [ "$SNAP_AFTER" -gt "$SNAP_BEFORE" ]; then
+  echo "  ✓ new history snapshot written"
   ((passed++)) || true
 else
-  echo "  ✗ no history snapshot written"
+  echo "  ✗ no new history snapshot written (before=$SNAP_BEFORE after=$SNAP_AFTER)"
   ((failed++)) || true
 fi
 

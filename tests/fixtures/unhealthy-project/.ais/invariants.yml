@@ -17,6 +17,7 @@ invariants:
     type: convention
     severity: warning
     description: "Every source file must have a colocated test file"
+    source_glob: "src/**"
     rule: "For every src/**/*.ts (excluding *.test.ts, *.d.ts), there should be a src/**/*.test.ts"
   - id: pattern-no-raw-sql
     type: pattern

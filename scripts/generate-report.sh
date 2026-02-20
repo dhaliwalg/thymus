@@ -79,8 +79,8 @@ echo "[$TIMESTAMP] History snapshot: $SNAPSHOT_FILE" >> "$DEBUG_LOG"
 # --- Compute SVG sparkline from history scores ---
 SVG_SPARKLINE=""
 SCORE_HISTORY=$(find "$HISTORY_DIR" -name "*.json" -type f | sort | tail -10 | while read -r f; do
-  jq '.score // 0' "$f" 2>/dev/null || echo 0
-done | tr '\n' ' ')
+  jq '.score // empty' "$f" 2>/dev/null || true
+done | grep -E '^[0-9]+$' | tr '\n' ' ')
 
 if [ "$(echo "$SCORE_HISTORY" | wc -w | tr -d ' ')" -ge 2 ]; then
   SVG_SPARKLINE=$(echo "$SCORE_HISTORY" | python3 -c "

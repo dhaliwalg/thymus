@@ -42,6 +42,11 @@ load_invariants() {
   python3 - "$yml" "$cache" <<'PYEOF'
 import sys, json, re
 
+def strip_val(s):
+    """Strip inline comments (2+ spaces before #) and surrounding quotes."""
+    s = re.sub(r'\s{2,}#.*$', '', s)
+    return s.strip('"\'')
+
 def parse(src, dst):
     invariants = []
     current = None
@@ -53,14 +58,14 @@ def parse(src, dst):
             if m:
                 if current:
                     invariants.append(current)
-                current = {'id': m.group(1)}
+                current = {'id': strip_val(m.group(1))}
                 list_key = None
                 continue
             if current is None:
                 continue
             m = re.match(r'^      - ["\']?(.*?)["\']?\s*$', line)
             if m and list_key is not None:
-                current[list_key].append(m.group(1))
+                current[list_key].append(strip_val(m.group(1)))
                 continue
             m = re.match(r'^    ([a-z_]+):\s*$', line)
             if m:
@@ -69,7 +74,7 @@ def parse(src, dst):
                 continue
             m = re.match(r'^    ([a-z_]+):\s*["\']?(.*?)["\']?\s*$', line)
             if m:
-                current[m.group(1)] = m.group(2)
+                current[m.group(1)] = strip_val(m.group(2))
                 list_key = None
                 continue
     if current:
@@ -170,9 +175,15 @@ fi
 files_checked=${#FILES[@]}
 echo "[$TIMESTAMP] scan-project: checking $files_checked files" >> "$DEBUG_LOG"
 
-# --- Accumulate violations ---
-VIOLATIONS_FILE="$CACHE_DIR/scan-violations-$$.json"
-echo "[]" > "$VIOLATIONS_FILE"
+# Early exit for empty file list (e.g. --diff with no changed files, empty scope)
+if [ "$files_checked" -eq 0 ]; then
+  jq -n --arg scope "${SCOPE:-}" \
+    '{"scope":$scope,"files_checked":0,"violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
+  exit 0
+fi
+
+# --- Accumulate violations in memory (avoids O(n²) file rewrite per violation) ---
+violation_objects=()
 
 invariant_count=$(jq '.invariants | length' "$INVARIANTS_JSON" 2>/dev/null || echo 0)
 
@@ -197,12 +208,10 @@ for rel_path in "${FILES[@]}"; do
         while IFS= read -r import; do
           [ -z "$import" ] && continue
           if import_is_forbidden "$import" "$inv"; then
-            obj=$(jq -n \
+            violation_objects+=("$(jq -n \
               --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
               --arg file "$rel_path" --arg imp "$import" \
-              '{rule:$rule,severity:$sev,message:$msg,file:$file,import:$imp}')
-            updated=$(jq --argjson v "$obj" '. + [$v]' "$VIOLATIONS_FILE")
-            echo "$updated" > "$VIOLATIONS_FILE"
+              '{rule:$rule,severity:$sev,message:$msg,file:$file,import:$imp}')")
           fi
         done <<< "$imports"
         ;;
@@ -212,12 +221,10 @@ for rel_path in "${FILES[@]}"; do
         [ -z "$forbidden_pattern" ] && continue
         if grep -qE "$forbidden_pattern" "$abs_path" 2>/dev/null; then
           line_num=$({ grep -nE "$forbidden_pattern" "$abs_path" 2>/dev/null | head -1 | cut -d: -f1; } || echo "")
-          obj=$(jq -n \
+          violation_objects+=("$(jq -n \
             --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
             --arg file "$rel_path" --arg line "${line_num}" \
-            '{rule:$rule,severity:$sev,message:$msg,file:$file,line:$line}')
-          updated=$(jq --argjson v "$obj" '. + [$v]' "$VIOLATIONS_FILE")
-          echo "$updated" > "$VIOLATIONS_FILE"
+            '{rule:$rule,severity:$sev,message:$msg,file:$file,line:$line}')")
         fi
         ;;
 
@@ -230,12 +237,10 @@ for rel_path in "${FILES[@]}"; do
             base="${abs_path%.*}"
             ext="${abs_path##*.}"
             if ! { [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; }; then
-              obj=$(jq -n \
+              violation_objects+=("$(jq -n \
                 --arg rule "$rule_id" --arg sev "$severity" \
                 --arg msg "Missing colocated test file" --arg file "$rel_path" \
-                '{rule:$rule,severity:$sev,message:$msg,file:$file}')
-              updated=$(jq --argjson v "$obj" '. + [$v]' "$VIOLATIONS_FILE")
-              echo "$updated" > "$VIOLATIONS_FILE"
+                '{rule:$rule,severity:$sev,message:$msg,file:$file}')")
             fi
           fi
         fi
@@ -245,13 +250,17 @@ for rel_path in "${FILES[@]}"; do
   done
 done
 
+# --- Serialize violation array once ---
+if [ "${#violation_objects[@]}" -eq 0 ]; then
+  VIOLATIONS="[]"
+else
+  VIOLATIONS=$(printf '%s\n' "${violation_objects[@]}" | jq -s '.')
+fi
+
 # --- Compute stats ---
-VIOLATIONS=$(cat "$VIOLATIONS_FILE")
 total=$(echo "$VIOLATIONS" | jq 'length')
 errors=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity=="error")] | length')
 warnings=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity=="warning")] | length')
-
-rm -f "$VIOLATIONS_FILE"
 
 # --- Output ---
 jq -n \
