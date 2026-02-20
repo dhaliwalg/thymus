@@ -1,24 +1,41 @@
 ---
 name: scan
 description: >-
-  Run a full architectural scan against the current baseline.
+  Run a full architectural scan against the current baseline and invariants.
   Use when the user wants to check for violations, audit a module,
-  or see what changed since the last scan.
+  or see what changed since the last scan. Supports scoping to a subdirectory.
 disable-model-invocation: true
-argument-hint: "[path/to/module]"
+argument-hint: "[path/to/module] [--diff]"
 ---
 
 # AIS Scan
 
-AIS has not been initialized yet. Run `/ais:baseline` first.
+Run the full-project invariant scanner:
 
-Once initialized, scan the full project:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS
+```
 
-  /ais:scan
+The output is JSON. Parse it and format a human-readable violation table:
 
-Scope to a specific module:
+```
+Scanning <scope or "entire project"> (<N> files)...
 
-  /ais:scan src/auth
+VIOLATIONS
+──────────
+[ERROR]   <rule-id>
+          <file>:<line> — <message>
 
-AIS will check all files against `invariants.yml` and report
-violations grouped by severity.
+[WARNING] <rule-id>
+          <file> — <message>
+
+N violation(s) found (X errors, Y warnings).
+```
+
+If `stats.total` is 0, output: `✅ No violations found.`
+
+Append at the end: `Run /ais:health for the full report with trend data.`
+
+**Scoping:** If `$ARGUMENTS` contains a path (e.g. `src/auth`), the scan is limited to that directory.
+
+**Diff mode:** If `$ARGUMENTS` contains `--diff`, only files changed since `git HEAD` are scanned.

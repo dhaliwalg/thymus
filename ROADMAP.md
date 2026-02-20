@@ -53,14 +53,14 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Create plugin directory structure matching the tree above
-- [ ] Write `.claude-plugin/plugin.json` manifest with correct schema
-- [ ] Create minimal `skills/health/SKILL.md` that returns "AIS not yet initialized"
-- [ ] Create `hooks/hooks.json` with stubbed PostToolUse, Stop, and SessionStart hooks
-- [ ] Write `scripts/load-baseline.sh` that checks for `.ais/` directory in project root
-- [ ] Verify plugin loads with `claude --plugin-dir ./architectural-immune-system`
-- [ ] Verify `/ais:health` appears in skill list and is invocable
-- [ ] Verify hooks fire on Edit/Write events (log to `/tmp/ais-debug.log`)
+- [x] Create plugin directory structure matching the tree above
+- [x] Write `.claude-plugin/plugin.json` manifest with correct schema
+- [x] Create minimal `skills/health/SKILL.md` that returns "AIS not yet initialized"
+- [x] Create `hooks/hooks.json` with stubbed PostToolUse, Stop, and SessionStart hooks
+- [x] Write `scripts/load-baseline.sh` that checks for `.ais/` directory in project root
+- [x] Verify plugin loads with `claude --plugin-dir ./architectural-immune-system`
+- [x] Verify `/ais:health` appears in skill list and is invocable
+- [x] Verify hooks fire on Edit/Write events (log to `/tmp/ais-debug.log`)
 
 ### Definition of Done
 - Plugin installs without errors
@@ -78,7 +78,7 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Design the `.ais/` directory structure:
+- [x] Design the `.ais/` directory structure:
   ```
   .ais/
   ├── baseline.json        # Structural fingerprint
@@ -87,7 +87,7 @@ architectural-immune-system/
   │   └── YYYY-MM-DD.json
   └── config.yml           # Thresholds, ignored paths, language settings
   ```
-- [ ] Implement `/ais:baseline` skill:
+- [x] Implement `/ais:baseline` skill:
   - Scans project structure (directories, file types, module boundaries)
   - Maps dependency graph (imports/requires/use statements)
   - Identifies repeating patterns (where auth lives, where DB access happens, test locations)
@@ -98,24 +98,24 @@ architectural-immune-system/
     - `boundaries[]` — source_module, target_module, allowed (bool)
     - `conventions[]` — name, rule, severity
   - Presents findings to user for review/adjustment before saving
-- [ ] Implement `scripts/detect-patterns.sh`:
+- [x] Implement `scripts/detect-patterns.sh`:
   - Uses `grep`, `find`, `jq`, and language-aware heuristics
   - Supports: TypeScript/JavaScript, Python, Go, Rust, Java (extensible)
   - Extracts import graphs, directory structure, naming conventions
   - Outputs structured JSON
-- [ ] Implement `scripts/scan-dependencies.sh`:
+- [x] Implement `scripts/scan-dependencies.sh`:
   - Parses `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`
   - Maps internal module dependencies via import statements
   - Detects circular dependencies
   - Outputs adjacency list in JSON
-- [ ] Write `invariant-detector` agent:
+- [x] Write `invariant-detector` agent:
   - System prompt instructs it to analyze the baseline and propose invariants
   - Runs as a subagent with `context: fork`
   - Returns structured YAML invariants for user approval
-- [ ] Implement default rule templates in `templates/default-rules.yml`:
+- [x] Implement default rule templates in `templates/default-rules.yml`:
   - Generic rules: no circular deps, single responsibility directories, test co-location
   - Framework-specific: Next.js (app router conventions), Express (middleware chains), Django (app structure), FastAPI (router patterns)
-- [ ] Create `invariants.yml` schema with types:
+- [x] Create `invariants.yml` schema with types:
   - `boundary` — Module A must not import from Module B
   - `convention` — Files matching glob must follow naming pattern
   - `structure` — Directory must contain specific file types
@@ -139,7 +139,7 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Implement `scripts/analyze-edit.sh` (PostToolUse hook):
+- [x] Implement `scripts/analyze-edit.sh` (PostToolUse hook):
   - Receives tool input JSON via stdin (file_path from Edit/Write)
   - Loads `baseline.json` and `invariants.yml` from `.ais/`
   - Checks the edited file against relevant invariants:
@@ -165,17 +165,17 @@ architectural-immune-system/
     ```
   - Returns `systemMessage` to Claude with violation context
   - Does NOT block edits (warns only — blocking confuses the agent per community best practices)
-- [ ] Implement Stop hook in `scripts/session-report.sh`:
+- [x] Implement Stop hook in `scripts/session-report.sh`:
   - Aggregates all violations from the session
   - Computes a "session health score" (violations weighted by severity)
   - Outputs summary: "This session introduced 2 boundary violations and 1 convention warning"
   - Writes snapshot to `.ais/history/`
-- [ ] Implement SessionStart hook in `scripts/load-baseline.sh`:
+- [x] Implement SessionStart hook in `scripts/load-baseline.sh`:
   - Checks if `.ais/baseline.json` exists
   - If yes: injects a compact summary (< 500 tokens) into Claude's context via `systemMessage`
   - If no: suggests running `/ais:baseline`
   - Loads recent violation history for awareness
-- [ ] Performance optimization:
+- [x] Performance optimization:
   - Hook must complete in < 2 seconds to avoid disrupting flow
   - Cache parsed invariants in `/tmp/ais-cache-$PROJECT_HASH/`
   - Only check invariants relevant to the edited file (filter by glob)
@@ -198,7 +198,7 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Implement `/ais:health` skill (full version):
+- [x] Implement `/ais:health` skill (full version):
   - Runs full scan against current baseline
   - Computes health scores per module and overall
   - Generates an interactive HTML report (opens in browser):
@@ -208,18 +208,18 @@ architectural-immune-system/
     - **Top Violations**: Ranked by severity × frequency
     - **Tech Debt Projection**: "At current rate, X new violations per week"
   - Uses `scripts/generate-report.sh` with the HTML template
-- [ ] Implement `/ais:scan` skill:
+- [x] Implement `/ais:scan` skill:
   - Lighter than `/ais:health` — runs in terminal, no HTML
   - Outputs a structured table of current violations
   - Flags new violations since last scan
   - Supports `$ARGUMENTS` for scoping: `/ais:scan src/auth`
-- [ ] Implement `debt-projector` agent:
+- [x] Implement `debt-projector` agent:
   - Analyzes `.ais/history/` snapshots
   - Computes velocity of architectural drift
   - Projects: "If current patterns continue, you'll have X boundary violations in 30 days"
   - Identifies which modules are degrading fastest
   - Suggests targeted refactoring priorities
-- [ ] Add diff-aware scanning:
+- [x] Add diff-aware scanning:
   - Compare against git HEAD, branch, or specific commit
   - Show only NEW violations introduced by current branch
   - Perfect for PR review workflows

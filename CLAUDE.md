@@ -243,7 +243,11 @@ invariants:
     severity: error
     description: "No raw SQL strings outside the db layer"
     forbidden_pattern: "(SELECT|INSERT|UPDATE|DELETE)\\s+(FROM|INTO|SET)"
-    scope_glob: "src/!(db)/**"
+    scope_glob: "src/**"
+    # Inline YAML comments are not supported by the load_invariants() parser.
+    # Use a standalone comment line like this one instead.
+    scope_glob_exclude:
+      - "src/db/**"
 
   - id: dependency-scope
     type: dependency

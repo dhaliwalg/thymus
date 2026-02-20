@@ -1,0 +1,29 @@
+version: "1.0"
+invariants:
+  - id: boundary-routes-no-direct-db
+    type: boundary
+    severity: error
+    description: "Route handlers must not import directly from the db layer"
+    source_glob: "src/routes/**"
+    forbidden_imports:
+      - "../db/client"
+      - "src/db/**"
+      - "prisma"
+      - "knex"
+    allowed_imports:
+      - "../controllers/**"
+      - "../repositories/**"
+  - id: convention-test-colocation
+    type: convention
+    severity: warning
+    description: "Every source file must have a colocated test file"
+    source_glob: "src/**"
+    rule: "For every src/**/*.ts (excluding *.test.ts, *.d.ts), there should be a src/**/*.test.ts"
+  - id: pattern-no-raw-sql
+    type: pattern
+    severity: error
+    description: "No raw SQL strings outside the db layer"
+    forbidden_pattern: "(SELECT|INSERT|UPDATE|DELETE)[[:space:]]+(FROM|INTO|SET|WHERE)"
+    scope_glob: "src/**"
+    scope_glob_exclude:
+      - "src/db/**"
