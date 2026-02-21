@@ -1,17 +1,17 @@
-# CLAUDE.md — Architectural Immune System Plugin
+# CLAUDE.md — Thymus Plugin
 
-> Project-level instructions for building the AIS Claude Code plugin. Claude reads this file at session start.
+> Maintenance and extension guide for the Thymus Claude Code plugin. Claude reads this file at session start.
 
 ---
 
 ## Project Overview
 
-You are building **Architectural Immune System (AIS)** — a Claude Code plugin that continuously monitors codebase health, detects architectural drift, and enforces structural invariants in real-time.
+**Thymus** is a Claude Code plugin that continuously monitors codebase health, detects architectural drift, and enforces structural invariants in real-time.
 
 **Repository root**: This directory IS the plugin root.
-**Roadmap**: See `ROADMAP.md` for full phase breakdown and task checklists.
-**Task tracking**: See `tasks/todo.md` for current sprint items.
-**Lessons learned**: See `tasks/lessons.md` for accumulated patterns to follow.
+**Version**: 1.0
+**Roadmap**: See `ROADMAP.md` for phase history and future plans.
+**Lessons learned**: See `tasks/lessons.md` for patterns and mistakes.
 
 ---
 
@@ -309,30 +309,17 @@ If no violations: output nothing (empty stdout) or `{}`.
 
 ## Development Workflow
 
-### When starting a new session
-1. Read `tasks/todo.md` to know what's in progress
-2. Read `tasks/lessons.md` to avoid past mistakes
-3. Check which ROADMAP phase we're on
-4. Continue from where we left off
+### When extending Thymus
+1. Read `tasks/lessons.md` before making changes
+2. Add new invariant types by adding a `case` branch in BOTH `analyze-edit.sh` AND `scan-project.sh`
+3. New skills go in `skills/<name>/SKILL.md` with matching frontmatter `name:` field
+4. Run the relevant `tests/verify-*.sh` script after changes
+5. Update this file's project structure tree if you add/remove files
 
-### When building
-1. **Plan first**: Write the plan to `tasks/todo.md` before coding
-2. **Build in stages**: Small, testable increments
-3. **Test each piece**: Run the plugin locally with `claude --plugin-dir .`
-4. **Verify hooks**: Check `/tmp/ais-debug.log` for hook output
-5. **Check context cost**: Run `/context` after loading to verify token impact
-
-### When something goes wrong
-1. Stop immediately
-2. Document the issue in `tasks/lessons.md` with the pattern
-3. Re-plan before continuing
-4. Don't patch — find root cause
-
-### After any correction from user
-1. Update `tasks/lessons.md` with the mistake pattern
-2. Write a rule to prevent the same mistake
-3. Apply the correction
-4. Verify it works
+### When fixing bugs
+1. Reproduce with the test fixtures in `tests/fixtures/`
+2. Fix the script, then run verification
+3. Document the pattern in `tasks/lessons.md`
 
 ---
 
@@ -341,7 +328,7 @@ If no violations: output nothing (empty stdout) or `{}`.
 ### Manual verification
 ```bash
 # Test plugin loading
-claude --plugin-dir ./architectural-immune-system
+claude --plugin-dir .
 
 # Verify skills appear
 # Type / and look for ais:health, ais:scan, etc.

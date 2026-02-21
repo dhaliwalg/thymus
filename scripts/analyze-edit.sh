@@ -232,6 +232,32 @@ for ((i=0; i<invariant_count; i++)); do
       fi
       ;;
 
+    dependency)
+      [ -f "$file_path" ] || continue
+      package=$(echo "$inv" | jq -r '.package // empty')
+      [ -z "$package" ] && continue
+      # Check if this file is in an allowed location
+      allowed_count=$(echo "$inv" | jq 'if .allowed_in then .allowed_in | length else 0 end' 2>/dev/null || echo 0)
+      in_allowed=false
+      for ((a=0; a<allowed_count; a++)); do
+        allowed_glob=$(echo "$inv" | jq -r ".allowed_in[$a]")
+        if path_matches "$REL_PATH" "$allowed_glob"; then
+          in_allowed=true; break
+        fi
+      done
+      $in_allowed && continue
+      # Check if the file imports the package
+      if grep -qE "(from|require|import)[[:space:]]*['\"]${package}['\"]|from ${package} import|import ${package}" "$file_path" 2>/dev/null; then
+        SEV_UPPER=$(echo "$severity" | tr '[:lower:]' '[:upper:]')
+        msg="[$SEV_UPPER] $rule_id: $description (package: $package)"
+        violation_lines+=("$msg")
+        new_violation_objects+=("$(jq -n \
+          --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
+          --arg file "$REL_PATH" --arg pkg "$package" \
+          '{rule:$rule,severity:$sev,message:$msg,file:$file,package:$pkg}')")
+      fi
+      ;;
+
   esac
 done
 

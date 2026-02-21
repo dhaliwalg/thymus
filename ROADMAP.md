@@ -1,6 +1,22 @@
-# ROADMAP — Architectural Immune System (AIS)
+# ROADMAP — Thymus
 
 > A Claude Code plugin that continuously models your codebase's architectural invariants and enforces them in real-time across every session.
+
+---
+
+## v1.0 Release (2026-02-21)
+
+Thymus v1.0 ships with:
+- **3 hooks**: PostToolUse (`analyze-edit.sh`), Stop (`session-report.sh`), SessionStart (`load-baseline.sh`)
+- **5 skills**: `/ais:health`, `/ais:scan`, `/ais:baseline`, `/ais:learn`, `/ais:configure`
+- **2 agents**: `invariant-detector`, `debt-projector`
+- **4 enforced invariant types**: `boundary`, `pattern`, `convention`, `dependency`
+- Health score formula, HTML report with SVG sparkline, debt projections
+- Severity auto-calibration, pattern auto-discovery, diff-aware scanning
+- Language/framework auto-detection (TypeScript, Python, Go, Rust, Java)
+- Per-phase verification test suite
+
+All five development phases (0-5) are complete.
 
 ---
 
@@ -8,7 +24,7 @@
 
 Claude Code generates code. You merge it. Over days and weeks, architecture silently rots — duplicated patterns, inconsistent abstractions, dependency bloat, violated boundaries. 41% of AI-generated code gets revised within 2 weeks. **Nothing watches the codebase between sessions.**
 
-AIS is the immune system. It learns what "healthy" looks like, detects foreign patterns, and rejects architectural violations before they compound into technical debt.
+Thymus is the immune system. It learns what "healthy" looks like, detects foreign patterns, and rejects architectural violations before they compound into technical debt.
 
 ---
 
@@ -44,7 +60,7 @@ thymus/
 
 ---
 
-## Phase 0 — Foundation & Scaffolding
+## Phase 0 — Foundation & Scaffolding ✓
 
 **Goal:** Working plugin skeleton that installs, loads, and responds to basic commands.
 
@@ -69,7 +85,7 @@ thymus/
 
 ---
 
-## Phase 1 — Baseline Engine
+## Phase 1 — Baseline Engine ✓
 
 **Goal:** AIS can scan a codebase and produce a structural baseline — the "healthy" fingerprint.
 
@@ -130,7 +146,7 @@ thymus/
 
 ---
 
-## Phase 2 — Real-Time Enforcement (The Immune Response)
+## Phase 2 — Real-Time Enforcement (The Immune Response) ✓
 
 **Goal:** Every file edit triggers a violation check. Claude gets immediate feedback on architectural drift.
 
@@ -189,7 +205,7 @@ thymus/
 
 ---
 
-## Phase 3 — Health Dashboard & Reporting
+## Phase 3 — Health Dashboard & Reporting ✓
 
 **Goal:** Rich, visual health reports that show drift over time.
 
@@ -232,7 +248,7 @@ thymus/
 
 ---
 
-## Phase 4 — Learning & Auto-Discovery
+## Phase 4 — Learning & Auto-Discovery ✓
 
 **Goal:** AIS gets smarter over time. It learns from corrections, discovers new patterns, and auto-tunes.
 
@@ -269,7 +285,7 @@ thymus/
 
 ---
 
-## Phase 5 — Polish & Distribution
+## Phase 5 — Polish & Distribution ✓
 
 **Goal:** Production-quality plugin ready for marketplace distribution.
 
@@ -314,15 +330,16 @@ thymus/
 
 ---
 
-## Future (V2 Ideas)
+## Future
 
-- **CI/CD integration**: Run AIS in GitHub Actions, fail PRs that introduce boundary violations
+- **`structure` type handler**: Circular dependency detection via import graph analysis
+- **Broader `convention` matching**: Beyond test colocation — naming conventions, file placement rules
+- **Plugin marketplace submission**: Publish to the Claude Code plugin marketplace
+- **CI/CD integration**: Run Thymus in GitHub Actions, fail PRs that introduce boundary violations
 - **Team invariants**: Shared `.ais/` committed to repo, team-wide enforcement
 - **Visualization MCP**: Dependency graph as interactive web UI via MCP server
 - **Cross-repo rules**: Organization-wide architectural standards
-- **Migration planner**: "Your codebase violates 12 rules. Here's a prioritized refactoring plan with estimated effort"
-- **A/B testing CLAUDE.md**: Automatically test which CLAUDE.md rules reduce violations most
-- **Integration with code-review plugin**: Feed AIS violations into PR review agents
+- **Migration planner**: Prioritized refactoring plans with estimated effort
 
 ---
 

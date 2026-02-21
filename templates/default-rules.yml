@@ -5,11 +5,11 @@
 version: "1.0"
 
 generic:
-  - id: generic-no-circular-deps
-    type: structure
-    severity: error
-    description: "No circular module dependencies"
-    note: "Implemented in Phase 3 /ais:scan — placeholder only"
+  # v2: structure type not yet enforced at runtime
+  # - id: generic-no-circular-deps
+  #   type: structure
+  #   severity: error
+  #   description: "No circular module dependencies"
 
   - id: generic-test-colocation
     type: convention
@@ -17,17 +17,19 @@ generic:
     description: "Tests must be colocated with source files"
     rule: "For every src/**/*.ts, there should be a src/**/*.test.ts"
 
-  - id: generic-single-responsibility-dirs
-    type: structure
-    severity: info
-    description: "Each directory should have a single clear responsibility"
-    rule: "Directories should not mix concerns (e.g. no routes + services in same dir)"
+  # v2: structure type not yet enforced at runtime
+  # - id: generic-single-responsibility-dirs
+  #   type: structure
+  #   severity: info
+  #   description: "Each directory should have a single clear responsibility"
+  #   rule: "Directories should not mix concerns (e.g. no routes + services in same dir)"
 
-  - id: generic-no-deep-nesting
-    type: structure
-    severity: info
-    description: "Source files should not be nested more than 4 levels deep"
-    rule: "No src file should be at depth > 4 from project root"
+  # v2: structure type not yet enforced at runtime
+  # - id: generic-no-deep-nesting
+  #   type: structure
+  #   severity: info
+  #   description: "Source files should not be nested more than 4 levels deep"
+  #   rule: "No src file should be at depth > 4 from project root"
 
 nextjs:
   - id: nextjs-no-db-in-pages
@@ -45,11 +47,12 @@ nextjs:
     source_glob: "app/**"
     forbidden_imports: ["prisma", "src/db/**", "mongoose", "sequelize"]
 
-  - id: nextjs-api-routes-only-in-pages-api
-    type: structure
-    severity: warning
-    description: "API route handlers belong in pages/api or app/api only"
-    rule: "Files matching the Next.js route handler pattern should live under pages/api/** or app/api/**"
+  # v2: structure type not yet enforced at runtime
+  # - id: nextjs-api-routes-only-in-pages-api
+  #   type: structure
+  #   severity: warning
+  #   description: "API route handlers belong in pages/api or app/api only"
+  #   rule: "Files matching the Next.js route handler pattern should live under pages/api/** or app/api/**"
 
   - id: nextjs-no-server-imports-in-client-ts
     type: boundary
@@ -114,8 +117,9 @@ fastapi:
     description: "FastAPI route dependencies should use Depends() injection"
     rule: "Routes should accept dependencies via Depends() rather than instantiating them directly"
 
-  - id: fastapi-schemas-in-schemas-module
-    type: structure
-    severity: warning
-    description: "Pydantic request/response schemas should be in a dedicated schemas module"
-    rule: "Classes inheriting from BaseModel should live in schemas/ or models/"
+  # v2: structure type not yet enforced at runtime
+  # - id: fastapi-schemas-in-schemas-module
+  #   type: structure
+  #   severity: warning
+  #   description: "Pydantic request/response schemas should be in a dedicated schemas module"
+  #   rule: "Classes inheriting from BaseModel should live in schemas/ or models/"

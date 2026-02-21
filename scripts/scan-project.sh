@@ -251,6 +251,28 @@ for rel_path in "${FILES[@]}"; do
         fi
         ;;
 
+      dependency)
+        package=$(echo "$inv" | jq -r '.package // empty')
+        [ -z "$package" ] && continue
+        # Check if this file is in an allowed location
+        allowed_count=$(echo "$inv" | jq 'if .allowed_in then .allowed_in | length else 0 end' 2>/dev/null || echo 0)
+        in_allowed=false
+        for ((a=0; a<allowed_count; a++)); do
+          allowed_glob=$(echo "$inv" | jq -r ".allowed_in[$a]")
+          if path_matches "$rel_path" "$allowed_glob"; then
+            in_allowed=true; break
+          fi
+        done
+        $in_allowed && continue
+        # Check if the file imports the package
+        if grep -qE "(from|require|import)[[:space:]]*['\"]${package}['\"]|from ${package} import|import ${package}" "$abs_path" 2>/dev/null; then
+          violation_objects+=("$(jq -n \
+            --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
+            --arg file "$rel_path" --arg pkg "$package" \
+            '{rule:$rule,severity:$sev,message:$msg,file:$file,package:$pkg}')")
+        fi
+        ;;
+
     esac
   done
 done
