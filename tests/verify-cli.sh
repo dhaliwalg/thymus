@@ -81,6 +81,45 @@ text_output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus-check" src/routes/users.ts --
 check "text format shows file path" "src/routes/users.ts" "$text_output"
 check "text format shows severity" "error" "$text_output"
 
+# --- thymus-scan ---
+echo ""
+echo "thymus-scan:"
+
+# Test: scan unhealthy project → violations found, valid JSON
+output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus-scan" --format json 2>/dev/null || true)
+check "scan detects boundary violation" "boundary-routes-no-direct-db" "$output"
+check_json "output is array" ". | type" "array" "$output"
+check_json "violations use rule_id field" ".[0].rule_id" "boundary-routes-no-direct-db" "$(echo "$output" | jq '[.[] | select(.rule_id == "boundary-routes-no-direct-db")]')"
+check_json "severity maps warning→warn" ".[0].severity" "warn" "$(echo "$output" | jq '[.[] | select(.severity == "warn")]')"
+
+# Test: scan healthy project → empty array, exit 0
+output=$(cd "$HEALTHY" && "$ROOT/bin/thymus-scan" --format json 2>/dev/null || true)
+check_json "healthy project returns empty array" ". | length" "0" "$output"
+check_exit "healthy scan exits 0" 0 bash -c "cd '$HEALTHY' && '$ROOT/bin/thymus-scan' --format json"
+
+# Test: scan with violations exits 1
+check_exit "violation scan exits 1" 1 bash -c "cd '$UNHEALTHY' && '$ROOT/bin/thymus-scan' --format json"
+
+# Test: --diff flag (staged files only)
+# Create a temp git repo, stage a file with violation
+TMPDIR_DIFF=$(mktemp -d)
+git init "$TMPDIR_DIFF" > /dev/null 2>&1
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_DIFF/"
+cp -r "$UNHEALTHY/src" "$TMPDIR_DIFF/"
+cp "$UNHEALTHY/package.json" "$TMPDIR_DIFF/"
+(cd "$TMPDIR_DIFF" && git add src/routes/users.ts > /dev/null 2>&1)
+output=$(cd "$TMPDIR_DIFF" && "$ROOT/bin/thymus-scan" --diff --format json 2>/dev/null || true)
+check "diff mode scans staged files" "boundary-routes-no-direct-db" "$output"
+rm -rf "$TMPDIR_DIFF"
+
+# Test: --files flag
+output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus-scan" --files src/routes/users.ts --format json 2>/dev/null || true)
+check "files flag scans specific file" "boundary-routes-no-direct-db" "$output"
+
+# Test: text format
+text_output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus-scan" --format text 2>/dev/null || true)
+check "text format shows violation count" "violation" "$text_output"
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
