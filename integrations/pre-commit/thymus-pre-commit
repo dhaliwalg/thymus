@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# thymus-pre-commit — Git pre-commit hook for Thymus
+# Scans staged files against architectural invariants.
+# Exit 0 = pass (or thymus not configured), Exit 1 = blocked (error violations)
+
+# Find thymus binary relative to repo root
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+THYMUS_BIN="$REPO_ROOT/bin/thymus"
+
+if [ ! -x "$THYMUS_BIN" ]; then
+  echo "thymus: bin/thymus not found. Run 'thymus init' first." >&2
+  exit 0  # Don't block commits if thymus isn't set up
+fi
+
+if [ ! -f "$REPO_ROOT/.thymus/invariants.yml" ]; then
+  exit 0  # No rules configured
+fi
+
+# Scan only staged files
+VIOLATIONS=$("$THYMUS_BIN" scan --diff --format json 2>/dev/null) || true
+
+if [ -z "$VIOLATIONS" ] || [ "$VIOLATIONS" = "[]" ]; then
+  exit 0
+fi
+
+COUNT=$(echo "$VIOLATIONS" | jq 'length')
+
+if [ "$COUNT" -eq 0 ]; then
+  exit 0
+fi
+
+echo "thymus: $COUNT architectural violation(s) found in staged files:"
+echo "$VIOLATIONS" | jq -r '.[] |
+  "  \(.severity): \(.file)" +
+  (if .line then ":\(.line)" else "" end) +
+  " — \(.message)"'
+
+# Check if any are errors (not just warnings)
+ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length')
+if [ "$ERRORS" -gt 0 ]; then
+  echo ""
+  echo "Commit blocked. Fix $ERRORS error(s) or use --no-verify to bypass."
+  exit 1
+else
+  echo ""
+  echo "Warnings only — commit proceeding."
+  exit 0
+fi
