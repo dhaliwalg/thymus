@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS Stop hook — session-report.sh
-# Fires at end of every Claude session. Reads session violations from cache,
-# writes a history snapshot, and outputs a compact summary systemMessage.
+# Stop hook: summarize session violations and write history snapshot
 
 DEBUG_LOG="/tmp/ais-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
@@ -14,28 +12,23 @@ session_id=$(echo "$input" | jq -r '.session_id // "unknown"' 2>/dev/null || ech
 
 echo "[$TIMESTAMP] session-report.sh: session $session_id ended" >> "$DEBUG_LOG"
 
-# No baseline = silent exit
 [ -f "$AIS_DIR/baseline.json" ] || exit 0
 
-# Get session cache
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
 CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 
-# No violations file means no edits were analyzed
 if [ ! -f "$SESSION_VIOLATIONS" ]; then
-  jq -n '{"systemMessage": "📋 AIS: No architectural edits this session."}'
+  jq -n '{"systemMessage": "ais: no edits this session"}'
   exit 0
 fi
 
-# Count violations by severity
 total=$(jq 'length' "$SESSION_VIOLATIONS")
 errors=$(jq '[.[] | select(.severity == "error")] | length' "$SESSION_VIOLATIONS")
 warnings=$(jq '[.[] | select(.severity == "warning")] | length' "$SESSION_VIOLATIONS")
 
 echo "[$TIMESTAMP] session-report: $total total, $errors errors, $warnings warnings" >> "$DEBUG_LOG"
 
-# Write history snapshot
 mkdir -p "$AIS_DIR/history"
 SNAPSHOT_FILE="$AIS_DIR/history/${TIMESTAMP//:/-}.json"
 jq -n \
@@ -45,24 +38,30 @@ jq -n \
   '{timestamp: $ts, session_id: $sid, violations: $violations}' \
   > "$SNAPSHOT_FILE"
 
-echo "[$TIMESTAMP] History snapshot written to $SNAPSHOT_FILE" >> "$DEBUG_LOG"
-
-# Build summary message
 if [ "$total" -eq 0 ]; then
-  summary="✅ AIS: Clean session — no violations detected."
+  summary="ais: clean session"
 else
   parts=()
   [ "$errors" -gt 0 ] && parts+=("$errors error(s)")
   [ "$warnings" -gt 0 ] && parts+=("$warnings warning(s)")
   violation_summary=$(IFS=", "; echo "${parts[*]}")
-
-  # Get unique rules violated
   rules=$(jq -r '[.[].rule] | unique | join(", ")' "$SESSION_VIOLATIONS")
-
-  summary="⚠️ AIS Session: $total violation(s) — $violation_summary | Rules: $rules | Run /ais:scan for details"
+  summary="ais: $total violation(s) — $violation_summary | rules: $rules | run /ais:scan for details"
 fi
 
-jq -n --arg msg "$summary" '{"systemMessage": $msg}'
+# warn about rules that keep getting violated
+SUGGESTION=""
+ALL_RULES=$(find "$AIS_DIR/history" -name "*.json" -print0 2>/dev/null \
+  | xargs -0 cat 2>/dev/null \
+  | jq -rs '[.[].violations[].rule] | group_by(.) | map({rule: .[0], count: length}) | .[] | select(.count >= 3)' \
+  2>/dev/null || true)
+if [ -n "$ALL_RULES" ] && [ "$ALL_RULES" != "null" ]; then
+  REPEAT_RULES=$(echo "$ALL_RULES" | jq -r '.rule' | tr '\n' ', ' | sed 's/,$//')
+  if [ -n "$REPEAT_RULES" ]; then
+    SUGGESTION="\n\nCLAUDE.md tip: [${REPEAT_RULES}] has fired 3+ times — consider adding to CLAUDE.md:\n  'always run /ais:scan before committing'"
+  fi
+fi
 
-# Clear session cache for next session
+jq -n --arg msg "${summary}${SUGGESTION}" '{"systemMessage": $msg}'
+
 rm -f "$SESSION_VIOLATIONS"

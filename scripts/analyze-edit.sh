@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS PostToolUse hook — analyze-edit.sh
-# Fires on every Edit/Write. Checks the edited file against active invariants.
-# Output: JSON systemMessage if violations found, empty if clean.
-# NEVER exits with code 2 (no blocking).
+# PostToolUse hook: check edited file against invariants
+# never exits with code 2 — warns but doesn't block
 
 DEBUG_LOG="/tmp/ais-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
@@ -17,6 +15,21 @@ echo "[$TIMESTAMP] analyze-edit.sh: $tool_name on ${file_path:-unknown}" >> "$DE
 
 [ -z "$file_path" ] && exit 0
 
+[ -L "$file_path" ] && exit 0
+
+if [ -f "$file_path" ]; then
+  file_type=$(file -b "$file_path" 2>/dev/null || true)
+  case "$file_type" in
+    *text*|*JSON*|*XML*|*HTML*|*script*|*empty*) : ;;
+    *) exit 0 ;;
+  esac
+fi
+
+if [ -f "$file_path" ]; then
+  file_size=$(wc -c < "$file_path" 2>/dev/null || echo 0)
+  [ "$file_size" -gt 512000 ] && exit 0
+fi
+
 AIS_DIR="$PWD/.ais"
 INVARIANTS_YML="$AIS_DIR/invariants.yml"
 
@@ -28,12 +41,10 @@ mkdir -p "$CACHE_DIR"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 [ -f "$SESSION_VIOLATIONS" ] || echo "[]" > "$SESSION_VIOLATIONS"
 
-# --- YAML → JSON conversion (cached by mtime) ---
-# Parses invariants.yml using Python3 stdlib only (no PyYAML).
-# Writes parsed JSON to cache; reuses cache if newer than source.
+# parse invariants.yml to json, cached by mtime
 load_invariants() {
   local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "AIS: invariants.yml not found" >&2; return 1; }
+  [ -f "$yml" ] || { echo "ais: invariants.yml not found" >&2; return 1; }
   if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
     echo "$cache"; return 0
   fi
@@ -41,7 +52,6 @@ load_invariants() {
 import sys, json, re
 
 def strip_val(s):
-    """Strip inline comments (2+ spaces before #) and surrounding quotes."""
     s = re.sub(r'\s{2,}#.*$', '', s)
     return s.strip('"\'')
 
@@ -83,7 +93,7 @@ def parse(src, dst):
 parse(sys.argv[1], sys.argv[2])
 PYEOF
   if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "AIS: Failed to parse invariants.yml" >&2; return 1
+    echo "ais: failed to parse invariants.yml" >&2; return 1
   fi
   echo "$cache"
 }
@@ -93,11 +103,9 @@ INVARIANTS_JSON=$(load_invariants "$INVARIANTS_YML" "$CACHE_DIR/invariants.json"
 REL_PATH="${file_path#"$PWD"/}"
 [ "$REL_PATH" = "$file_path" ] && REL_PATH=$(basename "$file_path")
 
-echo "[$TIMESTAMP] Checking $REL_PATH" >> "$DEBUG_LOG"
+echo "[$TIMESTAMP] checking $REL_PATH" >> "$DEBUG_LOG"
 
-# --- Glob → regex conversion ---
-# NOTE: Extended glob negation !(foo)/** is NOT supported.
-# Use scope_glob + scope_glob_exclude instead (see invariants.yml schema).
+# NOTE: extended glob negation !(foo)/** is not supported — use scope_glob_exclude instead
 glob_to_regex() {
   printf '%s' "$1" \
     | sed \
@@ -153,7 +161,6 @@ for ((i=0; i<invariant_count; i++)); do
 
   if [ -n "$applicable_glob" ]; then
     path_matches "$REL_PATH" "$applicable_glob" || continue
-    # scope_glob_exclude: skip file if it matches any exclusion pattern
     excl_count=$(echo "$inv" | jq 'if .scope_glob_exclude then .scope_glob_exclude | length else 0 end' 2>/dev/null || echo 0)
     excluded=false
     for ((e=0; e<excl_count; e++)); do
@@ -165,7 +172,7 @@ for ((i=0; i<invariant_count; i++)); do
     $excluded && continue
   fi
 
-  echo "[$TIMESTAMP]   Checking rule $rule_id ($rule_type) against $REL_PATH" >> "$DEBUG_LOG"
+  echo "[$TIMESTAMP]   rule $rule_id ($rule_type) vs $REL_PATH" >> "$DEBUG_LOG"
 
   case "$rule_type" in
 
@@ -214,11 +221,11 @@ for ((i=0; i<invariant_count; i++)); do
           ext="${file_path##*.}"
           if ! { [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; }; then
             SEV_UPPER=$(echo "$severity" | tr '[:lower:]' '[:upper:]')
-            msg="[$SEV_UPPER] $rule_id: Missing test file for $REL_PATH"
+            msg="[$SEV_UPPER] $rule_id: missing test file for $REL_PATH"
             violation_lines+=("$msg")
             new_violation_objects+=("$(jq -n \
               --arg rule "$rule_id" --arg sev "$severity" \
-              --arg msg "Missing colocated test file" --arg file "$REL_PATH" \
+              --arg msg "missing colocated test file" --arg file "$REL_PATH" \
               '{rule:$rule,severity:$sev,message:$msg,file:$file}')")
           fi
         fi
@@ -228,7 +235,46 @@ for ((i=0; i<invariant_count; i++)); do
   esac
 done
 
-echo "[$TIMESTAMP] Found ${#violation_lines[@]} violations in $REL_PATH" >> "$DEBUG_LOG"
+echo "[$TIMESTAMP] found ${#violation_lines[@]} violations in $REL_PATH" >> "$DEBUG_LOG"
+
+# calibration: track fix/ignore events for previously-violated rules
+CALIBRATION_FILE="$AIS_DIR/calibration.json"
+[ -f "$CALIBRATION_FILE" ] || echo '{"rules":{}}' > "$CALIBRATION_FILE"
+
+PREV_RULES=$(jq -r --arg f "$REL_PATH" '[.[] | select(.file == $f) | .rule] | unique[]' "$SESSION_VIOLATIONS" 2>/dev/null || true)
+CURR_RULES=$(printf '%s\n' "${new_violation_objects[@]+\"${new_violation_objects[@]}\"}" \
+  | jq -r '.rule' 2>/dev/null | sort -u || true)
+
+CAL_EVENTS=()
+while IFS= read -r prev_rule; do
+  [ -z "$prev_rule" ] && continue
+  if echo "$CURR_RULES" | grep -q "^${prev_rule}$"; then
+    CAL_EVENTS+=("${prev_rule}:ignored")
+  else
+    CAL_EVENTS+=("${prev_rule}:fixed")
+  fi
+done <<< "${PREV_RULES:-}"
+
+if [ "${#CAL_EVENTS[@]}" -gt 0 ]; then
+  CAL_PY=$(mktemp /tmp/ais-cal-XXXXXX.py)
+  trap 'rm -f "$CAL_PY"' EXIT
+  cat > "$CAL_PY" << 'ENDPY'
+import sys, json
+cal_file = sys.argv[1]
+events = [e.split(':', 1) for e in sys.argv[2:]]
+with open(cal_file) as fp:
+    data = json.load(fp)
+rules_map = data.setdefault('rules', {})
+for rule, event in events:
+    r = rules_map.setdefault(rule, {'fixed': 0, 'ignored': 0})
+    r[event] = r.get(event, 0) + 1
+with open(cal_file, 'w') as fp:
+    json.dump(data, fp)
+ENDPY
+  python3 "$CAL_PY" "$CALIBRATION_FILE" "${CAL_EVENTS[@]}" 2>/dev/null || true
+  rm -f "$CAL_PY"
+  trap - EXIT
+fi
 
 [ ${#violation_lines[@]} -eq 0 ] && exit 0
 
@@ -237,9 +283,9 @@ for obj in "${new_violation_objects[@]}"; do
   echo "$updated" > "$SESSION_VIOLATIONS"
 done
 
-msg_body="⚠️ AIS: ${#violation_lines[@]} violation(s) in $REL_PATH:\n"
+msg_body="ais: ${#violation_lines[@]} violation(s) in $REL_PATH\n"
 for line in "${violation_lines[@]}"; do
-  msg_body+="  • $line\n"
+  msg_body+="  $line\n"
 done
 
 jq -n --arg msg "$msg_body" '{"systemMessage": $msg}'
