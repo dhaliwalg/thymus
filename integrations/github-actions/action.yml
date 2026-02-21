@@ -1,0 +1,72 @@
+name: 'Thymus Architectural Lint'
+description: 'Check architectural invariants defined in .thymus/invariants.yml'
+inputs:
+  scan-mode:
+    description: 'full (all files) or diff (changed files only)'
+    default: 'diff'
+  fail-on:
+    description: 'Fail the check on: error, warn, or never'
+    default: 'error'
+runs:
+  using: 'composite'
+  steps:
+    - name: Check thymus exists
+      shell: bash
+      run: |
+        if [ ! -f ".thymus/invariants.yml" ]; then
+          echo "::notice::No .thymus/invariants.yml found, skipping"
+          exit 0
+        fi
+        if [ ! -x "bin/thymus" ]; then
+          echo "::error::bin/thymus not found or not executable"
+          exit 1
+        fi
+    - name: Run thymus scan
+      shell: bash
+      run: |
+        SCAN_ARGS="--format json"
+        if [ "${{ inputs.scan-mode }}" = "diff" ]; then
+          SCAN_ARGS="--diff $SCAN_ARGS"
+        fi
+
+        set +e
+        VIOLATIONS=$(bin/thymus scan $SCAN_ARGS 2>/dev/null)
+        SCAN_EXIT=$?
+        set -e
+
+        # Exit 2 = config error
+        if [ "$SCAN_EXIT" -eq 2 ]; then
+          echo "::error::Thymus configuration error"
+          exit 1
+        fi
+
+        if [ -z "$VIOLATIONS" ] || [ "$VIOLATIONS" = "[]" ]; then
+          echo "::notice::Thymus: No architectural violations found"
+          exit 0
+        fi
+
+        COUNT=$(echo "$VIOLATIONS" | jq 'length')
+
+        if [ "$COUNT" -eq 0 ]; then
+          echo "::notice::Thymus: No architectural violations found"
+          exit 0
+        fi
+
+        # Output as GitHub annotations
+        echo "$VIOLATIONS" | jq -r '.[] |
+          if .severity == "error" then "::error file=\(.file)" + (if .line then ",line=\(.line)" else "" end) + "::\(.message)"
+          else "::warning file=\(.file)" + (if .line then ",line=\(.line)" else "" end) + "::\(.message)"
+          end'
+
+        # Determine exit code
+        if [ "${{ inputs.fail-on }}" = "never" ]; then
+          exit 0
+        elif [ "${{ inputs.fail-on }}" = "warn" ]; then
+          exit 1
+        else
+          # Default: fail on errors only
+          ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length')
+          if [ "$ERRORS" -gt 0 ]; then
+            exit 1
+          fi
+        fi
