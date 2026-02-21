@@ -1,169 +1,62 @@
 # Thymus
 
-A Claude Code plugin that watches your codebase for architectural drift and enforces structural invariants — in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.
+Architectural boundary enforcement for AI-assisted codebases.
 
-Code gets generated fast. Over time, architecture quietly rots — boundary violations, inconsistent patterns, modules that should never talk to each other suddenly do. Thymus is the immune system: it learns what healthy looks like and warns when things go wrong, before the mess compounds.
+## The Problem
 
----
+AI coding tools are fast. They're also structurally reckless. Give Claude or Cursor a feature to build and it'll happily route your controllers straight to the database, import across module boundaries, and scatter business logic wherever it lands. The architecture you spent months setting up erodes one helpful commit at a time.
 
-## Setup
+Thymus catches this. It watches every file edit against a set of rules you define in YAML, and flags the ones that violate your module boundaries. If an import shouldn't exist, Thymus catches it before it ships.
 
-**Install**
+## Quick Start
+
+Install the plugin:
+
 ```
-/plugin install thymus
+/install thymus
 ```
 
-**Initialize** (once per project)
+Generate a baseline for your project:
+
 ```
 /thymus:baseline
 ```
 
-Scans the project, proposes invariants, waits for your approval before saving anything.
+This scans your project structure, proposes rules, and waits for approval before saving anything.
 
-That's it. Thymus now checks every file you edit against your rules.
+Teach it a rule in plain English:
 
-**Check health**
 ```
-/thymus:health
-```
-
----
-
-## Cross-Editor Usage
-
-Thymus works everywhere — not just Claude Code.
-
-### CLI (any environment)
-
-```bash
-bin/thymus scan              # Scan entire project
-bin/thymus scan --diff       # Scan staged files only
-bin/thymus check src/file.ts # Check single file
-bin/thymus init              # Initialize .thymus/ in a new project
+/thymus:learn "controllers must not import from the database layer"
 ```
 
-### VS Code / Cursor / Windsurf
+Thymus converts this to a structured YAML invariant with the right scope, patterns, and severity. The rule takes effect on the next edit.
 
-1. Build the extension: `cd integrations/vscode && npm install && npm run compile`
-2. Open a project that has `.thymus/invariants.yml`
-3. Violations appear as squiggly underlines on save
+From here, every file edit is checked automatically. Violations show up inline:
 
-### Git Pre-Commit Hook
-
-```bash
-# Option A: Symlink (recommended)
-ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
-
-# Option B: pre-commit framework
-# Add to .pre-commit-config.yaml:
-- repo: local
-  hooks:
-    - id: thymus
-      name: thymus architectural lint
-      entry: bin/thymus scan --diff --format text
-      language: script
-      pass_filenames: false
+```
+BOUNDARY VIOLATION: src/routes/users.ts imports from db/models
+  Rule: routes-no-direct-db — "Route handlers must not import directly from the db layer"
+  Severity: error
 ```
 
-### CI/CD (GitHub Actions)
+## How It Works
+
+Three hooks fire automatically: session start loads your rules and injects a health summary into context, post-edit checks the changed file against all matching invariants in under 2 seconds, and session end summarizes violations and writes a history snapshot. Rules live in `.thymus/invariants.yml`. Import extraction is AST-aware for JavaScript/TypeScript and Python — it won't flag `import { db }` inside a comment or string literal. Go, Rust, and Java use regex-based extraction.
+
+## What You Can Define
+
+| Rule Type | Example |
+|-----------|---------|
+| Boundary | `routes/` cannot import from `db/` |
+| Dependency | Only `services/` may use the ORM |
+| Pattern ban | No raw SQL outside `repositories/` |
+| Naming | Files in `hooks/` must be named `use*.ts` |
+| Test coverage | Every file in `services/` needs a corresponding test |
+
+Rules are defined in YAML. Use `/thymus:learn` to generate them from plain English, or edit `.thymus/invariants.yml` directly:
 
 ```yaml
-# .github/workflows/thymus.yml
-name: Architectural Lint
-on: [pull_request]
-jobs:
-  thymus:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Run Thymus
-        uses: ./integrations/github-actions
-        with:
-          scan-mode: diff
-          fail-on: error
-```
-
----
-
-## How it works
-
-Three hooks:
-
-| Hook | What it does |
-|------|-------------|
-| Every file edit | Checks the file against your invariants. Warns immediately if something's wrong. |
-| Session start | Injects a compact health summary into context. |
-| Session end | Summarizes violations, writes a history snapshot, flags rules that keep firing. |
-
----
-
-## Commands
-
-### `/thymus:baseline`
-Initialize or refresh the baseline for the current project.
-
-```
-/thymus:baseline            # first-time setup
-/thymus:baseline --refresh  # re-scan after a big refactor
-```
-
-Produces:
-- `.thymus/baseline.json` — structural fingerprint
-- `.thymus/invariants.yml` — your rules
-- `.thymus/config.yml` — thresholds and ignored paths
-
-### `/thymus:scan`
-Scan the whole project (or a subdirectory) right now.
-
-```
-/thymus:scan
-/thymus:scan src/auth
-/thymus:scan --diff        # only files changed since git HEAD
-```
-
-### `/thymus:health`
-Full health report with trend data. Generates `.thymus/report.html`.
-
-### `/thymus:learn`
-Teach Thymus a new rule in plain English.
-
-```
-/thymus:learn all database queries must go through the repository layer
-/thymus:learn React components must not import from other components directly
-/thymus:learn never use raw SQL outside src/db
-```
-
-Translates it to YAML and asks for confirmation before saving.
-
-### `/thymus:configure`
-Adjust thresholds and ignored paths via `.thymus/config.yml`.
-
----
-
-## The `.thymus/` directory
-
-All state lives here. Thymus automatically adds `.thymus` to your `.gitignore` on first run. To share rules with your team, commit `invariants.yml` and `baseline.json` separately.
-
-```
-.thymus/
-├── baseline.json      # structural fingerprint
-├── invariants.yml     # your rules (human-editable)
-├── config.yml         # thresholds, ignored paths
-├── report.html        # latest health report
-├── calibration.json   # tracks which rules get fixed vs ignored
-└── history/           # timestamped session snapshots
-```
-
----
-
-## Rule syntax
-
-Edit `.thymus/invariants.yml` directly or use `/thymus:learn`.
-
-```yaml
-# boundary rule: module A can't import from module B
 - id: boundary-routes-no-db
   type: boundary
   severity: error
@@ -174,115 +67,88 @@ Edit `.thymus/invariants.yml` directly or use `/thymus:learn`.
     - "prisma"
   allowed_imports:
     - "src/repositories/**"
-
-# pattern rule: forbid a code pattern by regex
-- id: pattern-no-raw-sql
-  type: pattern
-  severity: error
-  description: "No raw SQL strings outside the db layer"
-  forbidden_pattern: "(SELECT|INSERT|UPDATE|DELETE)[[:space:]]+(FROM|INTO|SET|WHERE)"
-  scope_glob: "src/**"
-  scope_glob_exclude:
-    - "src/db/**"
-
-# convention rule: structural requirement
-- id: convention-test-colocation
-  type: convention
-  severity: warning
-  description: "Every source file must have a colocated test file"
-  source_glob: "src/**"
-  rule: "For every src/**/*.ts, there should be a src/**/*.test.ts"
-
-# dependency rule: restrict where a package can be imported
-- id: dependency-axios-scope
-  type: dependency
-  severity: warning
-  description: "Axios only used in the API client module"
-  package: "axios"
-  allowed_in:
-    - "src/lib/api-client/**"
 ```
 
-Severity: `error` (hard rules), `warning` (best practices), `info` (informational)
+Severity levels: `error` (hard rules), `warning` (best practices), `info` (informational).
 
----
+## Enforcement Beyond Claude Code
 
-## Config
+Rules are portable YAML. Thymus ships integrations that enforce the same rules outside of Claude Code:
 
-`.thymus/config.yml`:
+- **Pre-commit hook** — blocks violations at commit time, works with any editor
+- **CLI** — `bin/thymus scan` and `bin/thymus check <file>` for scripting and CI
+- **VS Code / Cursor / Windsurf** — extension reads the same rules, shows inline diagnostics
+- **GitHub Actions** — annotates PRs with violations
+
+### CLI
+
+```bash
+bin/thymus scan              # Scan entire project
+bin/thymus scan --diff       # Scan staged files only
+bin/thymus check src/file.ts # Check a single file
+bin/thymus init              # Initialize .thymus/ in a new project
+```
+
+### Pre-commit hook
+
+```bash
+ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
+```
+
+### GitHub Actions
 
 ```yaml
-version: "1.0"
-ignored_paths: [node_modules, dist, .next, .git, coverage, __pycache__]
-health_warning_threshold: 70
-health_error_threshold: 50
-language: typescript   # auto-detected; override if needed
+# .github/workflows/thymus.yml
+- uses: ./integrations/github-actions
+  with:
+    scan-mode: diff
+    fail-on: error
 ```
 
----
+## Slash Commands
 
-## Supported languages
+```
+/thymus:baseline   — Scan project structure and generate initial rules
+/thymus:scan       — Run a full project scan and show violations
+/thymus:learn      — Teach a new rule in plain English
+/thymus:health     — Generate an HTML health report with trends
+/thymus:configure  — Adjust severity levels and rule settings
+```
 
-| Language | Framework detection | Import analysis |
-|----------|--------------------| ----------------|
-| TypeScript/JavaScript | Next.js, Express, React | AST |
-| Python | Django, FastAPI, Flask | AST |
-| Go | modules | regex |
-| Rust | Cargo | regex |
-| Java | Maven, Gradle | regex |
+## Language Support
 
----
+| Language | Import Extraction | Notes |
+|----------|------------------|-------|
+| JavaScript/TypeScript | AST-aware (state machine) | Handles comments, strings, template literals, regex |
+| Python | AST-aware (`ast` module) | Full stdlib parsing |
+| Go | Regex | Matches `import` declarations |
+| Rust | Regex | Matches `use` and `extern crate` |
+| Java | Regex | Matches `import` and `import static` |
 
-## Performance
+Framework detection: Next.js, Express, React, Django, FastAPI, Flask, Cargo, Maven, Gradle.
 
-- Every hook runs in < 2s
-- Parsed invariants cached in `/tmp/thymus-cache-{hash}/`
-- Only checks invariants that match the edited file's glob
-- Binary files, symlinks, and files > 500KB are skipped
+## Installation
 
----
+From the Claude Code plugin directory:
 
-## FAQ
+```
+/install thymus
+```
 
-**A rule keeps firing but I always fix it. Can Thymus adjust automatically?**
-Thymus tracks this in `.thymus/calibration.json`. After enough data points, run `/thymus:configure` or manually run `bash scripts/calibrate-severity.sh` from the plugin directory to get downgrade recommendations.
+Or manually:
 
-**I refactored and the baseline is stale.**
-Run `/thymus:baseline --refresh`.
+```bash
+git clone https://github.com/dhaliwalg/thymus.git
+claude --plugin-dir ./thymus
+```
 
-**How do I share invariants with my team?**
-Thymus auto-gitignores `.thymus/` by default. To share rules, remove the `.thymus` line from `.gitignore` and commit `.thymus/invariants.yml` and `.thymus/baseline.json`. Keep `.thymus/history/` and `.thymus/report.html` gitignored.
-
-**Does Thymus block edits?**
-No. It warns but never blocks. Blocking mid-task causes confusing behavior — a warning gives the context needed to self-correct.
-
-**Thymus is flagging something that's intentional.**
-Edit `.thymus/invariants.yml` directly and change the severity to `info`, or remove the rule.
-
----
-
-## Troubleshooting
-
-**Hook not firing:** check `/tmp/thymus-debug.log`
-
-**"no baseline found":** run `/thymus:baseline` in your project root
-
-**"failed to parse invariants.yml":** check indentation — each rule starts with `  - id:` (2 spaces). Use `/thymus:learn` to add rules safely.
-
-**Hook is slow:** check `/tmp/thymus-debug.log` for timing. Add large generated directories to `ignored_paths` in `.thymus/config.yml`.
-
----
-
-## Requirements
+### Requirements
 
 - bash 4.0+
 - jq
 - python3 (stdlib only)
-- git (for `--diff` scanning)
-
----
+- git
 
 ## License
 
-MIT
-
+MIT. See [CLAUDE.md](CLAUDE.md) for contributor notes.

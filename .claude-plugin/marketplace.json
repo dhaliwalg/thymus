@@ -1,24 +1,10 @@
 {
   "name": "thymus",
-  "display_name": "Thymus",
-  "description": "Continuously monitors codebase health, detects architectural drift, and enforces structural invariants in real-time.",
-  "version": "1.0.0",
-  "author": {
-    "name": "Gurjit Dhaliwal"
-  },
-  "keywords": ["architecture", "code-quality", "invariants", "drift-detection", "health"],
-  "skills": [
-    { "name": "health", "description": "Generate HTML architectural health report" },
-    { "name": "scan", "description": "Quick terminal scan for violations" },
-    { "name": "baseline", "description": "Initialize or refresh structural baseline" },
-    { "name": "learn", "description": "Teach a new invariant in natural language" },
-    { "name": "configure", "description": "Adjust thresholds and ignored paths" }
-  ],
-  "hooks": ["PostToolUse", "Stop", "SessionStart"],
-  "requirements": {
-    "tools": ["bash", "jq", "python3", "git"],
-    "min_bash": "4.0"
-  },
+  "displayName": "Thymus — Architectural Invariants",
+  "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests. Learn rules in plain English, enforce them everywhere.",
+  "author": "Gurjit Dhaliwal",
+  "categories": ["Linters", "Architecture"],
+  "keywords": ["architecture", "boundaries", "linter", "imports", "invariants", "drift", "modules"],
   "repository": "https://github.com/dhaliwalg/thymus",
   "license": "MIT"
 }
