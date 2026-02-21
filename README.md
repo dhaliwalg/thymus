@@ -12,8 +12,10 @@ Thymus catches this. It watches every file edit against a set of rules you defin
 
 Install the plugin:
 
+<!-- When accepted to Anthropic's official directory, simplify to: /plugin install thymus -->
 ```
-/install thymus
+/plugin marketplace add dhaliwalg/thymus
+/plugin install thymus@dhaliwalg/thymus
 ```
 
 Generate a baseline for your project:
@@ -129,10 +131,12 @@ Framework detection: Next.js, Express, React, Django, FastAPI, Flask, Cargo, Mav
 
 ## Installation
 
-From the Claude Code plugin directory:
+From the Claude Code plugin marketplace:
 
+<!-- When accepted to Anthropic's official directory, simplify to: /plugin install thymus -->
 ```
-/install thymus
+/plugin marketplace add dhaliwalg/thymus
+/plugin install thymus@dhaliwalg/thymus
 ```
 
 Or manually:
