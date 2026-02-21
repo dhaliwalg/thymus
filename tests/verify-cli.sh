@@ -211,6 +211,98 @@ fi
 
 rm -rf "$TMPDIR_INIT" "$TMPDIR_INIT2"
 
+# --- pre-commit hook ---
+echo ""
+echo "pre-commit hook:"
+
+# Test: hook script exists and is executable
+if [ -x "$ROOT/integrations/pre-commit/thymus-pre-commit" ]; then
+  echo "  ✓ thymus-pre-commit is executable"
+  ((passed++)) || true
+else
+  echo "  ✗ thymus-pre-commit missing or not executable"
+  ((failed++)) || true
+fi
+
+# Test: hook blocks commit with error-severity violations
+TMPDIR_HOOK=$(mktemp -d)
+git init "$TMPDIR_HOOK" > /dev/null 2>&1
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_HOOK/"
+cp -r "$UNHEALTHY/src" "$TMPDIR_HOOK/"
+cp "$UNHEALTHY/package.json" "$TMPDIR_HOOK/"
+# Copy bin/ so the hook can find it
+cp -r "$ROOT/bin" "$TMPDIR_HOOK/"
+# Copy scripts/ so bin/ can find them
+cp -r "$ROOT/scripts" "$TMPDIR_HOOK/"
+# Copy templates/ for init
+cp -r "$ROOT/templates" "$TMPDIR_HOOK/"
+(cd "$TMPDIR_HOOK" && git add src/routes/users.ts > /dev/null 2>&1)
+hook_exit=0
+hook_output=$(cd "$TMPDIR_HOOK" && bash "$ROOT/integrations/pre-commit/thymus-pre-commit" 2>&1) || hook_exit=$?
+# The hook should detect violations and exit 1
+if [ "$hook_exit" -ne 0 ] && echo "$hook_output" | grep -q "violation"; then
+  echo "  ✓ hook blocks commit with error violations"
+  ((passed++)) || true
+else
+  echo "  ✗ hook did not block (exit=$hook_exit, output: $hook_output)"
+  ((failed++)) || true
+fi
+rm -rf "$TMPDIR_HOOK"
+
+# Test: hook allows commit with only warnings
+TMPDIR_HOOK2=$(mktemp -d)
+git init "$TMPDIR_HOOK2" > /dev/null 2>&1
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_HOOK2/"
+cp -r "$UNHEALTHY/src" "$TMPDIR_HOOK2/"
+cp "$UNHEALTHY/package.json" "$TMPDIR_HOOK2/"
+cp -r "$ROOT/bin" "$TMPDIR_HOOK2/"
+cp -r "$ROOT/scripts" "$TMPDIR_HOOK2/"
+cp -r "$ROOT/templates" "$TMPDIR_HOOK2/"
+# Stage only the model file (which has a warning-level convention violation, not error boundary)
+(cd "$TMPDIR_HOOK2" && git add src/models/user.model.ts > /dev/null 2>&1)
+hook_exit2=0
+(cd "$TMPDIR_HOOK2" && bash "$ROOT/integrations/pre-commit/thymus-pre-commit" > /dev/null 2>&1) || hook_exit2=$?
+if [ "$hook_exit2" -eq 0 ]; then
+  echo "  ✓ hook allows commit with warnings only"
+  ((passed++)) || true
+else
+  echo "  ✗ hook blocked commit with only warnings (exit=$hook_exit2)"
+  ((failed++)) || true
+fi
+rm -rf "$TMPDIR_HOOK2"
+
+# Test: .pre-commit-hooks.yaml exists and is valid YAML
+if [ -f "$ROOT/integrations/pre-commit/.pre-commit-hooks.yaml" ]; then
+  echo "  ✓ .pre-commit-hooks.yaml exists"
+  ((passed++)) || true
+else
+  echo "  ✗ .pre-commit-hooks.yaml missing"
+  ((failed++)) || true
+fi
+
+# --- GitHub Action ---
+echo ""
+echo "GitHub Action:"
+
+# Test: action.yml exists
+if [ -f "$ROOT/integrations/github-actions/action.yml" ]; then
+  echo "  ✓ action.yml exists"
+  ((passed++)) || true
+else
+  echo "  ✗ action.yml missing"
+  ((failed++)) || true
+fi
+
+# Test: action.yml has required fields
+if grep -q "name:" "$ROOT/integrations/github-actions/action.yml" 2>/dev/null && \
+   grep -q "inputs:" "$ROOT/integrations/github-actions/action.yml" 2>/dev/null; then
+  echo "  ✓ action.yml has name and inputs"
+  ((passed++)) || true
+else
+  echo "  ✗ action.yml missing required fields"
+  ((failed++)) || true
+fi
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1

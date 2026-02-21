@@ -1,0 +1,7 @@
+- id: thymus
+  name: thymus architectural lint
+  entry: bin/thymus scan --diff --format text
+  language: script
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit, pre-merge-commit, pre-push, manual]
