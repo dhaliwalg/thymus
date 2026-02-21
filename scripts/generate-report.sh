@@ -96,7 +96,7 @@ for i, v in enumerate(vals):
     x = i * (w - 1) / max(len(vals) - 1, 1)
     y = h - ((v - mn) / rng) * (h - 8) - 4
     pts.append(f'{x:.1f},{y:.1f}')
-color = '#34c759' if vals[-1] >= vals[0] else '#ff3b30'
+color = '#30d158' if vals[-1] >= vals[0] else '#ff453a'
 print(f'<polyline points=\"{\" \".join(pts)}\" stroke=\"{color}\" stroke-width=\"1.5\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>')
 " 2>/dev/null || true)
 fi
@@ -118,7 +118,7 @@ MODULE_TABLE_HTML=$(echo "$SCAN" | jq -r '
     | .[]
     | "<li class=\"mod-row\"><span class=\"mod-name\">\(.module)</span><div class=\"mod-counts\"><span class=\"cnt\"><span class=\"dot e\"></span><span class=\"cnt-n \(if .errors > 0 then "e" else "" end)\">\(.errors)</span></span><span class=\"cnt\"><span class=\"dot w\"></span><span class=\"cnt-n \(if .warnings > 0 then "w" else "" end)\">\(.warnings)</span></span></div></li>"
   end
-' 2>/dev/null || echo "<li><p style=\"color:#aeaeb2\">Error computing modules</p></li>")
+' 2>/dev/null || echo "<li><p style=\"color:#636366\">Error computing modules</p></li>")
 
 # --- Top violations list ---
 VIOLATIONS_HTML=$(echo "$SCAN" | jq -r '
@@ -131,7 +131,7 @@ VIOLATIONS_HTML=$(echo "$SCAN" | jq -r '
     | .[]
     | "<li class=\"viol-row\"><span class=\"viol-bar \(.severity)\"></span><div class=\"viol-info\"><div class=\"viol-rule\">\(.rule)</div><div class=\"viol-file\">\(.file)\(if (.line != null and .line != "") then ":\(.line)" else "" end)</div></div><span class=\"sev-tag \(.severity)\">\(.severity | ascii_upcase)</span></li>"
   end
-' 2>/dev/null || echo "<li><p style=\"color:#aeaeb2\">Error computing violations</p></li>")
+' 2>/dev/null || echo "<li><p style=\"color:#636366\">Error computing violations</p></li>")
 
 # --- Debt projection callout ---
 PROJECTION_HTML=""
@@ -149,9 +149,9 @@ if [ -n "$PROJECTION_JSON" ]; then
 fi
 
 # --- Score color ---
-SCORE_COLOR="#34c759"
-[ "$SCORE" -lt 80 ] && SCORE_COLOR="#ff9500"
-[ "$SCORE" -lt 50 ] && SCORE_COLOR="#ff3b30"
+SCORE_COLOR="#30d158"
+[ "$SCORE" -lt 80 ] && SCORE_COLOR="#ff9f0a"
+[ "$SCORE" -lt 50 ] && SCORE_COLOR="#ff453a"
 
 SCOPE_LABEL="entire project"
 [ -n "$SCOPE" ] && SCOPE_LABEL="$SCOPE"
@@ -169,8 +169,8 @@ cat > "$REPORT_FILE" <<HTMLEOF
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
-      background: #fff;
-      color: #1d1d1f;
+      background: #1c1c1e;
+      color: #f5f5f7;
       max-width: 720px;
       margin: 0 auto;
       padding: 56px 40px 80px;
@@ -187,13 +187,15 @@ cat > "$REPORT_FILE" <<HTMLEOF
     .brand { display: flex; align-items: center; gap: 10px; }
     .brand-mark {
       width: 26px; height: 26px;
-      background: #1d1d1f;
+      background: #f5f5f7;
       border-radius: 7px;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
     }
+    .brand-mark svg path { stroke: #1c1c1e; }
+    .brand-mark svg circle { fill: #1c1c1e; }
     .brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
-    .scan-meta { font-size: 11px; color: #aeaeb2; text-align: right; line-height: 1.7; font-variant-numeric: tabular-nums; }
+    .scan-meta { font-size: 11px; color: #8e8e93; text-align: right; line-height: 1.7; font-variant-numeric: tabular-nums; }
 
     /* Score hero */
     .score-hero { margin-bottom: 52px; }
@@ -206,12 +208,12 @@ cat > "$REPORT_FILE" <<HTMLEOF
       letter-spacing: -0.05em;
       font-variant-numeric: tabular-nums;
     }
-    .score-cap { font-size: 32px; font-weight: 200; color: #c7c7cc; letter-spacing: -0.02em; padding-bottom: 10px; }
+    .score-cap { font-size: 32px; font-weight: 200; color: #48484a; letter-spacing: -0.02em; padding-bottom: 10px; }
     .score-trend { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .trend-arrow { font-size: 20px; color: ${SCORE_COLOR}; line-height: 1; }
-    .trend-label { font-size: 13px; color: #6e6e73; }
-    .score-meta { font-size: 12px; color: #aeaeb2; }
-    .score-meta b { color: #6e6e73; font-weight: 500; }
+    .trend-label { font-size: 13px; color: #8e8e93; }
+    .score-meta { font-size: 12px; color: #8e8e93; }
+    .score-meta b { color: #aeaeb2; font-weight: 500; }
 
     /* Sections */
     section { margin-bottom: 44px; }
@@ -220,10 +222,10 @@ cat > "$REPORT_FILE" <<HTMLEOF
       font-weight: 600;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: #aeaeb2;
+      color: #8e8e93;
       margin-bottom: 10px;
     }
-    hr { border: none; border-top: 1px solid #e5e5ea; margin-bottom: 0; }
+    hr { border: none; border-top: 1px solid #38383a; margin-bottom: 0; }
 
     /* Module rows */
     .mods { list-style: none; }
@@ -232,22 +234,22 @@ cat > "$REPORT_FILE" <<HTMLEOF
       align-items: center;
       justify-content: space-between;
       padding: 11px 0;
-      border-bottom: 1px solid #f2f2f7;
+      border-bottom: 1px solid #2c2c2e;
     }
     .mod-row:last-child { border-bottom: none; }
     .mod-name {
       font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
       font-size: 12px;
-      color: #1d1d1f;
+      color: #f5f5f7;
     }
     .mod-counts { display: flex; gap: 20px; }
     .cnt { display: flex; align-items: center; gap: 5px; font-size: 12px; font-variant-numeric: tabular-nums; }
     .dot { width: 5px; height: 5px; border-radius: 50%; }
-    .dot.e { background: #ff3b30; }
-    .dot.w { background: #ff9500; }
-    .cnt-n { color: #aeaeb2; font-weight: 500; }
-    .cnt-n.e { color: #ff3b30; }
-    .cnt-n.w { color: #ff9500; }
+    .dot.e { background: #ff453a; }
+    .dot.w { background: #ff9f0a; }
+    .cnt-n { color: #636366; font-weight: 500; }
+    .cnt-n.e { color: #ff453a; }
+    .cnt-n.w { color: #ff9f0a; }
 
     /* Violation rows */
     .viols { list-style: none; }
@@ -256,18 +258,18 @@ cat > "$REPORT_FILE" <<HTMLEOF
       align-items: center;
       gap: 14px;
       padding: 12px 0;
-      border-bottom: 1px solid #f2f2f7;
+      border-bottom: 1px solid #2c2c2e;
     }
     .viol-row:last-child { border-bottom: none; }
     .viol-bar { width: 2px; height: 34px; border-radius: 1px; flex-shrink: 0; }
-    .viol-bar.error { background: #ff3b30; }
-    .viol-bar.warning { background: #ff9500; }
+    .viol-bar.error { background: #ff453a; }
+    .viol-bar.warning { background: #ff9f0a; }
     .viol-info { flex: 1; min-width: 0; }
     .viol-rule {
       font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
       font-size: 12px;
       font-weight: 500;
-      color: #1d1d1f;
+      color: #f5f5f7;
       margin-bottom: 3px;
       white-space: nowrap;
       overflow: hidden;
@@ -276,7 +278,7 @@ cat > "$REPORT_FILE" <<HTMLEOF
     .viol-file {
       font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
       font-size: 11px;
-      color: #aeaeb2;
+      color: #8e8e93;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -290,30 +292,30 @@ cat > "$REPORT_FILE" <<HTMLEOF
       border-radius: 5px;
       flex-shrink: 0;
     }
-    .sev-tag.error { background: rgba(255,59,48,.08); color: #ff3b30; }
-    .sev-tag.warning { background: rgba(255,149,0,.08); color: #ff9500; }
+    .sev-tag.error { background: rgba(255,69,58,.15); color: #ff453a; }
+    .sev-tag.warning { background: rgba(255,159,10,.15); color: #ff9f0a; }
 
     /* All-clear state */
-    .all-clear { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-size: 13px; color: #34c759; }
-    .clr-dot { width: 6px; height: 6px; border-radius: 50%; background: #34c759; flex-shrink: 0; }
+    .all-clear { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-size: 13px; color: #30d158; }
+    .clr-dot { width: 6px; height: 6px; border-radius: 50%; background: #30d158; flex-shrink: 0; }
 
     /* Sparkline */
     .chart-wrap { padding: 20px 0 8px; }
     .chart-wrap svg { display: block; overflow: visible; }
 
     /* Debt projection */
-    .proj-card { background: #f5f5f7; border-radius: 14px; padding: 22px 26px; }
-    .proj-title { font-size: 13px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
-    .proj-body { font-size: 13px; color: #6e6e73; margin-bottom: 10px; }
-    .proj-rec { font-size: 12px; color: #aeaeb2; border-left: 2px solid #d1d1d6; padding-left: 12px; }
+    .proj-card { background: #2c2c2e; border-radius: 14px; padding: 22px 26px; }
+    .proj-title { font-size: 13px; font-weight: 600; color: #f5f5f7; margin-bottom: 6px; }
+    .proj-body { font-size: 13px; color: #8e8e93; margin-bottom: 10px; }
+    .proj-rec { font-size: 12px; color: #636366; border-left: 2px solid #48484a; padding-left: 12px; }
 
     footer {
       font-size: 11px;
-      color: #d1d1d6;
+      color: #48484a;
       text-align: center;
       margin-top: 40px;
       padding-top: 24px;
-      border-top: 1px solid #f2f2f7;
+      border-top: 1px solid #2c2c2e;
     }
   </style>
 </head>
@@ -322,8 +324,8 @@ cat > "$REPORT_FILE" <<HTMLEOF
     <div class="brand">
       <div class="brand-mark">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M7 1.5L12.5 4.5V9.5L7 12.5L1.5 9.5V4.5L7 1.5Z" stroke="white" stroke-width="1.25" fill="none" stroke-linejoin="round"/>
-          <circle cx="7" cy="7" r="1.75" fill="white"/>
+          <path d="M7 1.5L12.5 4.5V9.5L7 12.5L1.5 9.5V4.5L7 1.5Z" stroke="#1c1c1e" stroke-width="1.25" fill="none" stroke-linejoin="round"/>
+          <circle cx="7" cy="7" r="1.75" fill="#1c1c1e"/>
         </svg>
       </div>
       <span class="brand-name">Thymus</span>
