@@ -76,3 +76,93 @@ jq -n \
     new_file_types: $new_file_types,
     baseline_module_count: $baseline_module_count
   }'
+
+# --- Auto-update CLAUDE.md with architectural summary ---
+_update_claude_md() {
+  local project_root="$1"
+  local invariants_file="$project_root/.thymus/invariants.yml"
+  local claude_md="$project_root/CLAUDE.md"
+
+  [ -f "$invariants_file" ] || return 0
+
+  # Extract error-severity rule summaries (id + description) via Python
+  local summary
+  local _pyscript
+  _pyscript=$(mktemp /tmp/thymus-cmd-XXXXXX.py)
+  cat > "$_pyscript" <<'PYEOF'
+import sys, re
+
+rules = []
+current_id = None
+current_desc = None
+current_sev = None
+
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.rstrip('\n')
+        m = re.match(r'^  - id:\s*["\']?(.*?)["\']?\s*$', line)
+        if m:
+            if current_id and current_sev == 'error' and current_desc:
+                rules.append(f"- {current_desc} ({current_id})")
+            current_id = m.group(1).strip('"\'')
+            current_desc = None
+            current_sev = None
+            continue
+        m = re.match(r'^    description:\s*["\']?(.*?)["\']?\s*$', line)
+        if m:
+            current_desc = m.group(1).strip('"\'')
+            continue
+        m = re.match(r'^    severity:\s*["\']?(.*?)["\']?\s*$', line)
+        if m:
+            current_sev = m.group(1).strip('"\'')
+            continue
+
+if current_id and current_sev == 'error' and current_desc:
+    rules.append(f"- {current_desc} ({current_id})")
+
+for r in rules[:5]:
+    print(r)
+if len(rules) > 5:
+    print("- See `.thymus/invariants.yml` for all rules.")
+PYEOF
+  summary=$(python3 "$_pyscript" "$invariants_file" 2>/dev/null) || true
+  rm -f "$_pyscript"
+
+  [ -z "$summary" ] && summary="- No error-severity rules defined yet."
+
+  local block
+  block="
+<!-- thymus:start -->
+## Architectural Rules
+
+This project uses Thymus for architectural enforcement. Rules are defined in \`.thymus/invariants.yml\` and checked on every file edit.
+
+Before generating imports or moving code between modules, check that the change doesn't violate boundary rules. Key constraints:
+$summary
+
+Run \`/thymus:scan\` to check for violations. Run \`/thymus:learn\` to add new rules.
+<!-- thymus:end -->"
+
+  if [ -f "$claude_md" ]; then
+    if grep -q "<!-- thymus:start -->" "$claude_md"; then
+      # Remove existing block, then append updated version
+      local tmpfile
+      tmpfile=$(mktemp)
+      sed '/<!-- thymus:start -->/,/<!-- thymus:end -->/d' "$claude_md" > "$tmpfile"
+      # Remove trailing blank lines left by sed (portable)
+      python3 -c "
+import sys; p=sys.argv[1]; t=open(p).read().rstrip('\n')
+open(p,'w').write(t+'\n' if t else '')
+" "$tmpfile"
+      mv "$tmpfile" "$claude_md"
+      printf '%s\n' "$block" >> "$claude_md"
+    else
+      printf '%s\n' "$block" >> "$claude_md"
+    fi
+  else
+    printf '%s\n' "# Project Notes" > "$claude_md"
+    printf '%s\n' "$block" >> "$claude_md"
+  fi
+}
+
+_update_claude_md "$PWD"
