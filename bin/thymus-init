@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# thymus-init — Initialize .thymus/ in a project
+# Usage: thymus-init [target_dir]
+# If target_dir not given, uses $PWD.
+# Creates .thymus/ with starter invariants.yml and config.yml.
+# Runs scan-dependencies.sh to auto-detect language/framework.
+# Does NOT overwrite existing files.
+
+# --- Resolve script location ---
+SCRIPT="$0"
+while [ -L "$SCRIPT" ]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+  SCRIPT="$(readlink "$SCRIPT")"
+  [[ "$SCRIPT" != /* ]] && SCRIPT="$SCRIPT_DIR/$SCRIPT"
+done
+BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+SCRIPTS_DIR="$(cd "$BIN_DIR/../scripts" && pwd)"
+TEMPLATES_DIR="$(cd "$BIN_DIR/../templates" && pwd)"
+
+TARGET="${1:-$PWD}"
+
+if [ ! -d "$TARGET" ]; then
+  echo "thymus-init: directory not found: $TARGET" >&2
+  exit 2
+fi
+
+THYMUS_DIR="$TARGET/.thymus"
+mkdir -p "$THYMUS_DIR"
+mkdir -p "$THYMUS_DIR/history"
+
+# --- Detect language/framework ---
+LANG="unknown"
+FRAMEWORK="unknown"
+if [ -f "$SCRIPTS_DIR/scan-dependencies.sh" ]; then
+  DEPS_JSON=$(cd "$TARGET" && bash "$SCRIPTS_DIR/scan-dependencies.sh" "$TARGET" 2>/dev/null) || true
+  if [ -n "$DEPS_JSON" ]; then
+    LANG=$(echo "$DEPS_JSON" | jq -r '.language // "unknown"')
+    FRAMEWORK=$(echo "$DEPS_JSON" | jq -r '.framework // "unknown"')
+  fi
+fi
+
+echo "thymus: detected language=$LANG framework=$FRAMEWORK"
+
+# --- Create config.yml (only if not exists) ---
+if [ ! -f "$THYMUS_DIR/config.yml" ]; then
+  cat > "$THYMUS_DIR/config.yml" <<EOF
+version: "1.0"
+ignored_paths: [node_modules, dist, .next, .git, coverage, .thymus, .worktrees, __pycache__, .venv, vendor, target, build]
+health_warning_threshold: 70
+health_error_threshold: 50
+language: $LANG
+EOF
+  echo "thymus: created .thymus/config.yml"
+else
+  echo "thymus: .thymus/config.yml already exists, skipping"
+fi
+
+# --- Create invariants.yml with default rules ---
+if [ ! -f "$THYMUS_DIR/invariants.yml" ]; then
+  # Start with header
+  cat > "$THYMUS_DIR/invariants.yml" <<'EOF'
+version: "1.0"
+invariants:
+EOF
+
+  # Copy framework-specific rules from templates if available
+  if [ -f "$TEMPLATES_DIR/default-rules.yml" ]; then
+    # Always add generic rules
+    python3 - "$TEMPLATES_DIR/default-rules.yml" "$THYMUS_DIR/invariants.yml" "$FRAMEWORK" <<'PYEOF'
+import sys, re
+
+template_file = sys.argv[1]
+output_file = sys.argv[2]
+framework = sys.argv[3]
+
+with open(template_file) as f:
+    content = f.read()
+
+# Parse sections: find lines like "sectionname:" at indent 0
+sections = {}
+current_section = None
+current_lines = []
+for line in content.split('\n'):
+    # Skip comments and blank lines at top level
+    if re.match(r'^[a-z]+:', line):
+        if current_section and current_lines:
+            sections[current_section] = current_lines
+        current_section = line.rstrip(':').strip()
+        current_lines = []
+    elif current_section is not None:
+        current_lines.append(line)
+if current_section and current_lines:
+    sections[current_section] = current_lines
+
+# Collect rules to add: always "generic", plus framework if detected
+targets = ['generic']
+if framework != 'unknown' and framework in sections:
+    targets.append(framework)
+
+rules = []
+for section in targets:
+    if section in sections:
+        for line in sections[section]:
+            rules.append(line)
+
+# Filter out comment-only rules (lines starting with #)
+# Keep only actual rule blocks (starting with "  - id:")
+filtered = []
+in_commented = False
+for line in rules:
+    stripped = line.lstrip()
+    if stripped.startswith('# ') and not stripped.startswith('# v2'):
+        continue
+    if stripped.startswith('# -') or stripped.startswith('#   '):
+        in_commented = True
+        continue
+    if in_commented and (stripped == '' or stripped.startswith('#')):
+        continue
+    in_commented = False
+    filtered.append(line)
+
+with open(output_file, 'a') as f:
+    for line in filtered:
+        if line.strip():  # skip blank lines
+            f.write(line + '\n')
+
+# Count rules added
+count = sum(1 for line in filtered if line.strip().startswith('- id:'))
+print(count)
+PYEOF
+  fi
+
+  echo "thymus: created .thymus/invariants.yml"
+else
+  echo "thymus: .thymus/invariants.yml already exists, skipping"
+fi
+
+# --- Add .thymus/ to .gitignore ---
+if [ -d "$TARGET/.git" ]; then
+  GITIGNORE="$TARGET/.gitignore"
+  if ! grep -q "^\.thymus" "$GITIGNORE" 2>/dev/null; then
+    echo ".thymus/" >> "$GITIGNORE"
+    echo "thymus: added .thymus/ to .gitignore"
+  fi
+fi
+
+echo "thymus: initialization complete"
+echo ""
+echo "Next steps:"
+echo "  1. Review .thymus/invariants.yml and add project-specific rules"
+echo "  2. Run: bin/thymus scan"
+echo "  3. (Optional) Install pre-commit hook: ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit"
