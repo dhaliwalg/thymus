@@ -1,0 +1,82 @@
+{
+  "name": "thymus",
+  "displayName": "Thymus — Architectural Invariants",
+  "description": "Enforces architectural boundary rules defined in .thymus/invariants.yml. Works with any AI coding tool.",
+  "version": "0.1.0",
+  "publisher": "thymus",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "architecture",
+    "boundaries",
+    "linter",
+    "invariants",
+    "cursor",
+    "windsurf"
+  ],
+  "activationEvents": [
+    "workspaceContains:.thymus/invariants.yml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Thymus",
+      "properties": {
+        "thymus.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable Thymus architectural checking"
+        },
+        "thymus.binaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to thymus binary (auto-detected from workspace if empty)"
+        },
+        "thymus.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run thymus check on file save"
+        },
+        "thymus.checkOnType": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run thymus check while typing (may impact performance)"
+        },
+        "thymus.severityMap": {
+          "type": "object",
+          "default": {
+            "error": "Error",
+            "warn": "Warning",
+            "info": "Information"
+          },
+          "description": "Map thymus severity levels to VS Code diagnostic severity"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "thymus.scanWorkspace",
+        "title": "Thymus: Scan Workspace"
+      },
+      {
+        "command": "thymus.showHealth",
+        "title": "Thymus: Show Health Report"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.3.0"
+  }
+}
