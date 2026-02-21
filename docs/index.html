@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thymus — An immune system for your codebase</title>
-  <meta name="description" content="A Claude Code plugin that learns your project's architectural rules and enforces them on every edit.">
+  <meta name="description" content="Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
@@ -111,6 +111,7 @@
 
     .problem,
     .how-it-works,
+    .works-everywhere,
     .enforces {
       padding-bottom: clamp(4rem, 10vw, 7rem);
     }
@@ -180,6 +181,42 @@
       font-size: 0.9rem;
       color: var(--text-muted);
       line-height: 1.65;
+    }
+
+    /* ---- Works Everywhere ---- */
+
+    .integrations {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .integration {
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 1.25rem 1.4rem;
+    }
+
+    .integration h3 {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+
+    .integration p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .integration code {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent);
+      margin-top: 0.65rem;
+      line-height: 1.5;
     }
 
     /* ---- What It Enforces ---- */
@@ -266,6 +303,7 @@
     .hero,
     .problem,
     .how-it-works,
+    .works-everywhere,
     .enforces,
     footer {
       opacity: 0;
@@ -275,8 +313,9 @@
     .hero { animation-delay: 0s; }
     .problem { animation-delay: 0.1s; }
     .how-it-works { animation-delay: 0.2s; }
-    .enforces { animation-delay: 0.3s; }
-    footer { animation-delay: 0.4s; }
+    .works-everywhere { animation-delay: 0.3s; }
+    .enforces { animation-delay: 0.4s; }
+    footer { animation-delay: 0.5s; }
   </style>
 </head>
 <body>
@@ -284,13 +323,13 @@
     <section class="hero">
       <h1>Thymus</h1>
       <p class="tagline">An immune system for your codebase</p>
-      <p class="description">A Claude Code plugin that learns your project's architectural rules and enforces them on every edit.</p>
+      <p class="description">Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.</p>
       <a href="https://github.com/dhaliwalg/thymus" class="gh-link">View on GitHub</a>
     </section>
 
     <section class="problem">
       <h2 class="section-title">The Problem</h2>
-      <p>Claude Code writes great code. But it doesn't remember your architecture between sessions. Over days, patterns drift &mdash; boundaries get crossed, conventions break, dependencies leak where they shouldn't. By the time you notice, the debt has compounded.</p>
+      <p>AI tools write great code. But they don't remember your architecture between sessions. Over days, patterns drift &mdash; boundaries get crossed, conventions break, dependencies leak where they shouldn't. By the time you notice, the debt has compounded.</p>
     </section>
 
     <section class="how-it-works">
@@ -327,6 +366,42 @@
       </ol>
     </section>
 
+    <section class="works-everywhere">
+      <h2 class="section-title">Works Everywhere</h2>
+      <div class="integrations">
+        <div class="integration">
+          <h3>CLI</h3>
+          <p>Scan any project from the terminal. Check single files or the entire codebase.</p>
+          <code>bin/thymus scan --diff</code>
+        </div>
+        <div class="integration">
+          <h3>VS Code / Cursor / Windsurf</h3>
+          <p>Violations appear as squiggly underlines on save. Works with any editor that supports VS Code extensions.</p>
+          <code>Thymus: Scan Workspace</code>
+        </div>
+        <div class="integration">
+          <h3>Git Pre-Commit</h3>
+          <p>Blocks commits with error-severity violations. Warnings pass through. One symlink to install.</p>
+          <code>ln -sf ...thymus-pre-commit .git/hooks/pre-commit</code>
+        </div>
+        <div class="integration">
+          <h3>GitHub Actions</h3>
+          <p>Annotates PRs with inline violation comments. Fails the check on errors, warns on the rest.</p>
+          <code>uses: ./integrations/github-actions</code>
+        </div>
+        <div class="integration">
+          <h3>Claude Code</h3>
+          <p>The original. Hooks into every edit, session start, and session end. Zero-config after baseline.</p>
+          <code>/plugin install thymus</code>
+        </div>
+        <div class="integration">
+          <h3>JSON API</h3>
+          <p>All tools output a documented JSON schema. Build your own integrations for any editor or CI system.</p>
+          <code>bin/thymus check file.ts --format json</code>
+        </div>
+      </div>
+    </section>
+
     <section class="enforces">
       <h2 class="section-title">What It Enforces</h2>
       <div class="invariants">
@@ -351,7 +426,7 @@
   </main>
 
   <footer>
-    <p class="zero-deps">Zero dependencies. Bash + jq. Installs in seconds.</p>
+    <p class="zero-deps">Zero dependencies. Bash + jq. Works in every editor.</p>
     <a href="https://github.com/dhaliwalg/thymus" class="gh-link">GitHub</a>
     <p class="credit">Built by Gurjit Dhaliwal</p>
   </footer>
