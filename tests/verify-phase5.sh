@@ -161,6 +161,36 @@ if [ -d "$PYTHON_FIXTURE" ]; then
   fi
 fi
 
+# --- AST import extraction ---
+echo ""
+echo "AST import extraction:"
+
+AST_OUT=$(bash "$ROOT/tests/verify-ast-imports.sh" 2>&1)
+if echo "$AST_OUT" | grep -q "0 failed"; then
+  echo "  ✓ AST import extraction tests pass"
+  ((passed++)) || true
+else
+  echo "  ✗ AST import extraction regression"
+  echo "$AST_OUT" | grep "✗" | head -5
+  ((failed++)) || true
+fi
+
+# --- False positive elimination: commented-import.ts ---
+echo ""
+echo "False positive elimination:"
+
+SCAN="$ROOT/scripts/scan-project.sh"
+UNHEALTHY="$ROOT/tests/fixtures/unhealthy-project"
+FP_SCAN=$(cd "$UNHEALTHY" && bash "$SCAN" 2>/dev/null)
+FP_BOUNDARY=$(echo "$FP_SCAN" | jq '[.violations[] | select(.file | contains("commented-import")) | select(.rule == "boundary-routes-no-direct-db")] | length')
+if [ "$FP_BOUNDARY" -eq 0 ]; then
+  echo "  ✓ commented-import.ts has no false boundary violations"
+  ((passed++)) || true
+else
+  echo "  ✗ commented-import.ts still has $FP_BOUNDARY false boundary violation(s)"
+  ((failed++)) || true
+fi
+
 # --- Final regression: all previous phases still pass ---
 echo ""
 echo "Phase regression:"

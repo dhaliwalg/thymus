@@ -129,12 +129,12 @@ file_in_scope() {
   return 0
 }
 
-extract_ts_imports() {
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+extract_imports() {
   local file="$1"
   [ -f "$file" ] || return 0
-  { grep -oE "(from|require)[[:space:]]*['\"][^'\"]+['\"]" "$file" 2>/dev/null || true; } \
-    | { grep -oE "['\"][^'\"]+['\"]" || true; } \
-    | tr -d "'\"" || true
+  python3 "${SCRIPT_DIR}/extract-imports.py" "$file" 2>/dev/null || true
 }
 
 import_is_forbidden() {
@@ -208,7 +208,7 @@ for rel_path in "${FILES[@]}"; do
     case "$rule_type" in
 
       boundary)
-        imports=$(extract_ts_imports "$abs_path")
+        imports=$(extract_imports "$abs_path")
         [ -z "$imports" ] && continue
         while IFS= read -r import; do
           [ -z "$import" ] && continue

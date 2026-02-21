@@ -122,13 +122,12 @@ path_matches() {
   echo "$path" | grep -qE "$regex" 2>/dev/null || return 1
 }
 
-extract_ts_imports() {
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+extract_imports() {
   local file="$1"
   [ -f "$file" ] || return 0
-  { grep -oE "(from|require)[[:space:]]*['\"][^'\"]+['\"]" "$file" 2>/dev/null || true; } \
-    | { grep -oE "['\"][^'\"]+['\"]" || true; } \
-    | tr -d "'\"" \
-    || true
+  python3 "${SCRIPT_DIR}/extract-imports.py" "$file" 2>/dev/null || true
 }
 
 import_is_forbidden() {
@@ -178,7 +177,7 @@ for ((i=0; i<invariant_count; i++)); do
 
     boundary)
       [ -f "$file_path" ] || continue
-      imports=$(extract_ts_imports "$file_path")
+      imports=$(extract_imports "$file_path")
       [ -z "$imports" ] && continue
       while IFS= read -r import; do
         [ -z "$import" ] && continue
