@@ -10,12 +10,12 @@ TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 echo "[$TIMESTAMP] load-baseline.sh fired in $PWD" >> "$DEBUG_LOG"
 
-# Auto-add .thymus to .gitignore if it's a git repo and not already ignored
+# Auto-add .thymus/ to .gitignore if it's a git repo and not already ignored
 if [ -d "$THYMUS_DIR" ] && [ -d "$PWD/.git" ]; then
   GITIGNORE="$PWD/.gitignore"
-  if [ ! -f "$GITIGNORE" ] || ! grep -qx '.thymus' "$GITIGNORE" 2>/dev/null; then
-    echo '.thymus' >> "$GITIGNORE"
-    echo "[$TIMESTAMP] added .thymus to .gitignore" >> "$DEBUG_LOG"
+  if [ ! -f "$GITIGNORE" ] || ! grep -qE '^\.thymus/?$' "$GITIGNORE" 2>/dev/null; then
+    echo '.thymus/' >> "$GITIGNORE"
+    echo "[$TIMESTAMP] added .thymus/ to .gitignore" >> "$DEBUG_LOG"
   fi
 fi
 

@@ -1,4 +1,5 @@
 .worktrees/
-.thymus
+.thymus/
 !tests/fixtures/**/.thymus/
+__pycache__/
 CLAUDE.md
