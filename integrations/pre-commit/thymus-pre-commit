@@ -10,8 +10,11 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 THYMUS_BIN="$REPO_ROOT/bin/thymus"
 
 if [ ! -x "$THYMUS_BIN" ]; then
-  echo "thymus: bin/thymus not found. Run 'thymus init' first." >&2
-  exit 0  # Don't block commits if thymus isn't set up
+  THYMUS_BIN=$(command -v thymus 2>/dev/null || true)
+fi
+
+if [ -z "$THYMUS_BIN" ] || [ ! -x "$THYMUS_BIN" ]; then
+  exit 0  # Don't block commits if thymus isn't installed
 fi
 
 if [ ! -f "$REPO_ROOT/.thymus/invariants.yml" ]; then

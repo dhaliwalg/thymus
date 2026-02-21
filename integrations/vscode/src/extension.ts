@@ -118,7 +118,7 @@ function findThymusBinary(): string | null {
 
   // Search from workspace root upward
   let dir = getWorkspaceRoot();
-  while (dir && dir !== '/') {
+  while (dir && dir !== dirname(dir)) {
     const candidate = join(dir, 'bin', 'thymus-check');
     if (existsSync(candidate)) {
       return candidate;

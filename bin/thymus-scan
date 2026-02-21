@@ -41,7 +41,11 @@ for arg in "$@"; do
   prev_arg="$arg"
 done
 
-# --- Auto-detect format ---
+# --- Validate and auto-detect format ---
+if [ -n "$FORMAT" ] && [ "$FORMAT" != "json" ] && [ "$FORMAT" != "text" ]; then
+  echo "Error: Invalid format '$FORMAT'. Use 'json' or 'text'." >&2
+  exit 2
+fi
 if [ -z "$FORMAT" ]; then
   if [ -t 1 ]; then FORMAT="text"; else FORMAT="json"; fi
 fi
