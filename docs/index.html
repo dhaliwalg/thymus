@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thymus — An immune system for your codebase</title>
+  <meta name="description" content="A Claude Code plugin that learns your project's architectural rules and enforces them on every edit.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg: #1e1e2e;
+      --surface: #181825;
+      --text: #cdd6f4;
+      --text-muted: #6c7086;
+      --accent: #89b4fa;
+      --font-display: 'Sora', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --max-w: 680px;
+      --px: clamp(1.5rem, 5vw, 2rem);
+    }
+
+    html {
+      font-size: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: clamp(0.95rem, 1.8vw, 1.05rem);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    main {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 var(--px);
+    }
+
+    /* ---- Hero ---- */
+
+    .hero {
+      text-align: center;
+      padding-top: clamp(6rem, 20vw, 12rem);
+      padding-bottom: clamp(8rem, 22vw, 14rem);
+    }
+
+    .hero h1 {
+      font-weight: 700;
+      font-size: clamp(3.5rem, 12vw, 6rem);
+      letter-spacing: -0.05em;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .hero .tagline {
+      font-weight: 200;
+      font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+      color: var(--text-muted);
+      margin-top: 1rem;
+      letter-spacing: 0.01em;
+    }
+
+    .hero .description {
+      font-weight: 400;
+      font-size: clamp(0.88rem, 1.6vw, 0.95rem);
+      color: var(--text);
+      opacity: 0.6;
+      margin-top: 1.75rem;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.7;
+    }
+
+    .gh-link {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+      text-decoration: none;
+      border: 1px solid rgba(137, 180, 250, 0.35);
+      padding: 0.5rem 1.3rem;
+      border-radius: 999px;
+      transition: background 0.2s ease, border-color 0.2s ease;
+      letter-spacing: 0.02em;
+    }
+
+    .gh-link:hover {
+      background: rgba(137, 180, 250, 0.1);
+      border-color: var(--accent);
+    }
+
+    .hero .gh-link {
+      margin-top: 2.5rem;
+    }
+
+    /* ---- Section rhythm ---- */
+
+    .problem,
+    .how-it-works,
+    .enforces {
+      padding-bottom: clamp(4rem, 10vw, 7rem);
+    }
+
+    .section-title {
+      font-weight: 200;
+      font-size: clamp(2rem, 6vw, 2.8rem);
+      color: var(--text);
+      opacity: 0.45;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+    }
+
+    /* ---- Problem ---- */
+
+    .problem p:last-child {
+      opacity: 0.7;
+      line-height: 1.8;
+    }
+
+    /* ---- How It Works ---- */
+
+    .steps {
+      list-style: none;
+      border-left: 1px solid rgba(137, 180, 250, 0.15);
+      margin-left: 0.6rem;
+      padding-left: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2.25rem;
+    }
+
+    .steps li {
+      position: relative;
+    }
+
+    .step-num {
+      position: absolute;
+      left: -2rem;
+      top: 0.1rem;
+      transform: translateX(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: var(--accent);
+      background: var(--bg);
+      padding: 0.1rem 0;
+      line-height: 1;
+    }
+
+    .steps h3 {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--text);
+      margin-bottom: 0.4rem;
+    }
+
+    .steps h3 code {
+      font-family: var(--font-mono);
+      font-weight: 400;
+      font-size: 0.95rem;
+      color: var(--accent);
+    }
+
+    .steps li p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+    }
+
+    /* ---- What It Enforces ---- */
+
+    .invariants {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .invariant p {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 0.6rem;
+    }
+
+    .invariant strong {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .invariant p span {
+      color: var(--text);
+      opacity: 0.6;
+    }
+
+    .invariant code {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--surface);
+      padding: 0.6rem 0.85rem;
+      border-radius: 4px;
+      line-height: 1.5;
+    }
+
+    /* ---- Footer ---- */
+
+    footer {
+      text-align: center;
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: clamp(2rem, 5vw, 3rem) var(--px) clamp(3rem, 8vw, 5rem);
+      border-top: 1px solid rgba(205, 214, 244, 0.06);
+    }
+
+    footer p,
+    footer a {
+      font-size: 0.75rem;
+    }
+
+    footer .zero-deps {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      opacity: 0.7;
+      margin-bottom: 1rem;
+    }
+
+    footer .gh-link {
+      font-size: 0.75rem;
+      padding: 0.35rem 1rem;
+    }
+
+    footer .credit {
+      color: var(--text-muted);
+      opacity: 0.4;
+      margin-top: 1rem;
+    }
+
+    /* ---- Animation ---- */
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .hero,
+    .problem,
+    .how-it-works,
+    .enforces,
+    footer {
+      opacity: 0;
+      animation: fadeUp 0.6s ease-out forwards;
+    }
+
+    .hero { animation-delay: 0s; }
+    .problem { animation-delay: 0.1s; }
+    .how-it-works { animation-delay: 0.2s; }
+    .enforces { animation-delay: 0.3s; }
+    footer { animation-delay: 0.4s; }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <h1>Thymus</h1>
+      <p class="tagline">An immune system for your codebase</p>
+      <p class="description">A Claude Code plugin that learns your project's architectural rules and enforces them on every edit.</p>
+      <a href="https://github.com/dhaliwalg/thymus" class="gh-link">View on GitHub</a>
+    </section>
+
+    <section class="problem">
+      <h2 class="section-title">The Problem</h2>
+      <p>Claude Code writes great code. But it doesn't remember your architecture between sessions. Over days, patterns drift &mdash; boundaries get crossed, conventions break, dependencies leak where they shouldn't. By the time you notice, the debt has compounded.</p>
+    </section>
+
+    <section class="how-it-works">
+      <h2 class="section-title">How It Works</h2>
+      <ol class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <div>
+            <h3><code>/thymus:baseline</code></h3>
+            <p>Scans your project, detects modules, boundaries, and patterns. Proposes invariants. You review and save.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <div>
+            <h3>Every edit, automatically</h3>
+            <p>A PostToolUse hook checks each file change against your rules in under two seconds. Warns Claude immediately if something drifts.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
+            <h3><code>/thymus:scan</code></h3>
+            <p>Full-project scan on demand. Catches violations the hooks might miss.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div>
+            <h3><code>/thymus:health</code></h3>
+            <p>Generates an HTML health report with score, trend sparklines, and debt projections.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="enforces">
+      <h2 class="section-title">What It Enforces</h2>
+      <div class="invariants">
+        <div class="invariant">
+          <p><strong>Boundaries</strong> &mdash; <span>Database access only through the repository layer</span></p>
+          <code>db.query() found outside src/repos/ — violation</code>
+        </div>
+        <div class="invariant">
+          <p><strong>Patterns</strong> &mdash; <span>No raw SQL outside the db module</span></p>
+          <code>SELECT * found in src/handlers/user.py — violation</code>
+        </div>
+        <div class="invariant">
+          <p><strong>Conventions</strong> &mdash; <span>Tests colocated with source files</span></p>
+          <code>test_auth.py expected next to auth.py — missing</code>
+        </div>
+        <div class="invariant">
+          <p><strong>Dependencies</strong> &mdash; <span>Axios only used in the API client</span></p>
+          <code>import axios found in src/components/ — violation</code>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p class="zero-deps">Zero dependencies. Bash + jq. Installs in seconds.</p>
+    <a href="https://github.com/dhaliwalg/thymus" class="gh-link">GitHub</a>
+    <p class="credit">Built by Gurjit Dhaliwal</p>
+  </footer>
+</body>
+</html>
