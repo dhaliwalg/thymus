@@ -318,6 +318,125 @@ fi
 
 rm -rf "$TMPDIR_CAL"
 
+# --- Task 6: CLAUDE.md auto-update ---
+echo ""
+echo "refresh-baseline.sh (CLAUDE.md update):"
+
+TMPDIR_CMD=$(mktemp -d)
+mkdir -p "$TMPDIR_CMD/src/routes" "$TMPDIR_CMD/src/models" "$TMPDIR_CMD/.thymus"
+
+# Create baseline.json
+cat > "$TMPDIR_CMD/.thymus/baseline.json" <<'BLJSON'
+{
+  "generated_at": "2026-01-01T00:00:00",
+  "modules": [
+    {"name": "routes", "path": "src/routes"},
+    {"name": "models", "path": "src/models"}
+  ],
+  "boundaries": [],
+  "patterns": [],
+  "conventions": []
+}
+BLJSON
+
+# Create invariants.yml with error-severity rules
+cat > "$TMPDIR_CMD/.thymus/invariants.yml" <<'INVYML'
+version: "1.0"
+invariants:
+  - id: boundary-routes-no-db
+    type: boundary
+    severity: error
+    description: "Route handlers must not import from db layer"
+    source_glob: "src/routes/**"
+    forbidden_imports:
+      - "src/db/**"
+  - id: pattern-no-raw-sql
+    type: pattern
+    severity: error
+    description: "No raw SQL outside db layer"
+    forbidden_pattern: "SELECT.*FROM"
+    scope_glob: "src/**"
+  - id: convention-test-colocation
+    type: convention
+    severity: warning
+    description: "Source files should have colocated tests"
+    source_glob: "src/**"
+    rule: "test colocation"
+INVYML
+
+# Test 1: CLAUDE.md created from scratch when it doesn't exist
+(cd "$TMPDIR_CMD" && bash "$REFRESH" > /dev/null 2>&1)
+if [ -f "$TMPDIR_CMD/CLAUDE.md" ]; then
+  echo "  ✓ CLAUDE.md created when it didn't exist"
+  ((passed++)) || true
+else
+  echo "  ✗ CLAUDE.md not created"
+  ((failed++)) || true
+fi
+
+# Test 2: has thymus markers
+if grep -q "<!-- thymus:start -->" "$TMPDIR_CMD/CLAUDE.md" && grep -q "<!-- thymus:end -->" "$TMPDIR_CMD/CLAUDE.md"; then
+  echo "  ✓ CLAUDE.md has thymus markers"
+  ((passed++)) || true
+else
+  echo "  ✗ CLAUDE.md missing thymus markers"
+  ((failed++)) || true
+fi
+
+# Test 3: contains error-severity rule summaries (not warning-severity)
+if grep -q "boundary-routes-no-db" "$TMPDIR_CMD/CLAUDE.md" && grep -q "pattern-no-raw-sql" "$TMPDIR_CMD/CLAUDE.md"; then
+  echo "  ✓ CLAUDE.md contains error-severity rule summaries"
+  ((passed++)) || true
+else
+  echo "  ✗ CLAUDE.md missing error-severity rules"
+  ((failed++)) || true
+fi
+
+# Test 4: does NOT contain warning-severity rules
+if ! grep -q "convention-test-colocation" "$TMPDIR_CMD/CLAUDE.md"; then
+  echo "  ✓ CLAUDE.md excludes warning-severity rules"
+  ((passed++)) || true
+else
+  echo "  ✗ CLAUDE.md should not include warning-severity rules"
+  ((failed++)) || true
+fi
+
+# Test 5: existing content preserved when CLAUDE.md already exists
+echo "# My Project" > "$TMPDIR_CMD/CLAUDE.md"
+echo "Some existing content." >> "$TMPDIR_CMD/CLAUDE.md"
+(cd "$TMPDIR_CMD" && bash "$REFRESH" > /dev/null 2>&1)
+if grep -q "Some existing content" "$TMPDIR_CMD/CLAUDE.md" && grep -q "<!-- thymus:start -->" "$TMPDIR_CMD/CLAUDE.md"; then
+  echo "  ✓ existing CLAUDE.md content preserved"
+  ((passed++)) || true
+else
+  echo "  ✗ existing content lost or thymus block missing"
+  ((failed++)) || true
+fi
+
+# Test 6: idempotent — running again doesn't duplicate the block
+(cd "$TMPDIR_CMD" && bash "$REFRESH" > /dev/null 2>&1)
+CMD_COUNT=$(grep -c "<!-- thymus:start -->" "$TMPDIR_CMD/CLAUDE.md")
+if [ "$CMD_COUNT" -eq 1 ]; then
+  echo "  ✓ idempotent — no duplicate thymus blocks"
+  ((passed++)) || true
+else
+  echo "  ✗ duplicate thymus blocks found ($CMD_COUNT)"
+  ((failed++)) || true
+fi
+
+# Test 7: has Project Notes header when created from scratch
+rm -f "$TMPDIR_CMD/CLAUDE.md"
+(cd "$TMPDIR_CMD" && bash "$REFRESH" > /dev/null 2>&1)
+if head -1 "$TMPDIR_CMD/CLAUDE.md" | grep -q "# Project Notes"; then
+  echo "  ✓ new CLAUDE.md has Project Notes header"
+  ((passed++)) || true
+else
+  echo "  ✗ missing Project Notes header"
+  ((failed++)) || true
+fi
+
+rm -rf "$TMPDIR_CMD"
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
