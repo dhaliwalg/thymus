@@ -86,7 +86,7 @@ Adjust thresholds and ignored paths via `.thymus/config.yml`.
 
 ## The `.thymus/` directory
 
-All state lives here. Commit it for team sharing, or `.gitignore` it for personal use.
+All state lives here. Thymus automatically adds `.thymus` to your `.gitignore` on first run. To share rules with your team, commit `invariants.yml` and `baseline.json` separately.
 
 ```
 .thymus/
@@ -193,7 +193,7 @@ Thymus tracks this in `.thymus/calibration.json`. After enough data points, run 
 Run `/thymus:baseline --refresh`.
 
 **How do I share invariants with my team?**
-Commit `.thymus/invariants.yml` and `.thymus/baseline.json`. Add `.thymus/history/` and `.thymus/report.html` to `.gitignore`.
+Thymus auto-gitignores `.thymus/` by default. To share rules, remove the `.thymus` line from `.gitignore` and commit `.thymus/invariants.yml` and `.thymus/baseline.json`. Keep `.thymus/history/` and `.thymus/report.html` gitignored.
 
 **Does Thymus block edits?**
 No. It warns but never blocks. Blocking mid-task causes confusing behavior — a warning gives the context needed to self-correct.
