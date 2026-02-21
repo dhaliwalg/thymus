@@ -227,7 +227,75 @@ check_has "extracts static wildcard import org.junit.Assert.*" "org.junit.Assert
 check_has "extracts regular import com.example.service.UserService" "com.example.service.UserService" "$OUT"
 check_count "exactly 3 java imports" 3 "$OUT"
 
-# --- Test 8: Edge cases ---
+# --- Test 8: Go imports ---
+echo ""
+echo "Go import extraction:"
+
+cat > "$TMPDIR/test_go.go" << 'EOF'
+package main
+
+import "fmt"
+import alias "net/http"
+import (
+    "database/sql"
+    "os"
+    myalias "github.com/example/myapp/service"
+)
+// import "commented/out"
+/* import "block/commented" */
+var s = "import \"string/literal\""
+var raw = `import "raw/string"`
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_go.go")
+check_has "extracts single import fmt" "fmt" "$OUT"
+check_has "extracts aliased import net/http" "net/http" "$OUT"
+check_has "extracts grouped import database/sql" "database/sql" "$OUT"
+check_has "extracts grouped import os" "os" "$OUT"
+check_has "extracts grouped aliased import" "github.com/example/myapp/service" "$OUT"
+check_not_has "ignores line-commented import" "commented/out" "$OUT"
+check_not_has "ignores block-commented import" "block/commented" "$OUT"
+check_not_has "ignores import in double-quoted string" "string/literal" "$OUT"
+check_not_has "ignores import in raw string" "raw/string" "$OUT"
+check_count "exactly 5 Go imports" 5 "$OUT"
+
+# --- Test 9: Rust imports ---
+echo ""
+echo "Rust import extraction:"
+
+cat > "$TMPDIR/test_rust.rs" << 'EOF'
+use std::collections::HashMap;
+use crate::service::UserService;
+use std::io::{self, Read, Write};
+extern crate serde;
+use std::io::*;
+use std::result::Result as StdResult;
+// use commented::out;
+/* use block::commented; */
+/*
+  /* nested block use nested::comment; */
+*/
+let s = "use string::literal;";
+let raw = r#"use raw::string;"#;
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_rust.rs")
+check_has "extracts use std::collections::HashMap" "std::collections::HashMap" "$OUT"
+check_has "extracts use crate::service::UserService" "crate::service::UserService" "$OUT"
+check_has "extracts grouped use std::io::self" "std::io::self" "$OUT"
+check_has "extracts grouped use std::io::Read" "std::io::Read" "$OUT"
+check_has "extracts grouped use std::io::Write" "std::io::Write" "$OUT"
+check_has "extracts extern crate serde" "serde" "$OUT"
+check_has "extracts glob use std::io::*" "std::io::*" "$OUT"
+check_has "extracts renamed use std::result::Result" "std::result::Result" "$OUT"
+check_not_has "ignores line-commented use" "commented::out" "$OUT"
+check_not_has "ignores block-commented use" "block::commented" "$OUT"
+check_not_has "ignores nested block comment" "nested::comment" "$OUT"
+check_not_has "ignores use in string literal" "string::literal" "$OUT"
+check_not_has "ignores use in raw string" "raw::string" "$OUT"
+check_count "exactly 8 Rust imports" 8 "$OUT"
+
+# --- Test 10: Edge cases ---
 echo ""
 echo "Edge cases:"
 
@@ -254,7 +322,7 @@ EOF
 OUT=$(python3 "$EXTRACTOR" "$TMPDIR/only-comments.ts")
 check_empty "file with only comments produces no output" "$OUT"
 
-# --- Test 9: Fixture integration ---
+# --- Test 11: Fixture integration ---
 echo ""
 echo "Fixture integration:"
 

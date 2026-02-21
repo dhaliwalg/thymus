@@ -311,14 +311,101 @@ def extract_python_imports(filepath):
 
 
 # ---------------------------------------------------------------------------
-# Go — regex fallback
+# Go — comment-aware state-machine parser
 # ---------------------------------------------------------------------------
 
-def extract_go_imports(filepath):
-    """Extract imports from Go files using regex.
+def _strip_go_comments(content):
+    """Strip Go comments, preserving string content and line structure.
 
-    TODO: implement state-machine parser for Go imports to avoid false
-    positives from comments and string literals.
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ (no nesting in Go)
+    - Double-quoted strings: "..." with \\ escape sequences (preserved)
+    - Raw strings (backtick): `...` — no escapes (preserved)
+    - Rune literals: '...' with \\ escape sequences (preserved)
+
+    Only comment content is blanked. String content is preserved so that
+    line-level import detection can distinguish code from strings.
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=raw_string, 5=rune_literal
+    state = 0
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    i += 2; continue
+            if ch == '"':
+                state = 3
+            elif ch == '`':
+                state = 4
+            elif ch == "'":
+                state = 5
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # raw string (preserved)
+            if ch == '`':
+                state = 0
+            i += 1
+
+        elif state == 5:  # rune literal (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_go_imports(filepath):
+    """Extract imports from Go files using a comment-aware state machine.
+
+    Phase 1: strip comments (preserving strings and line structure).
+    Phase 2: line-by-line extraction — only match import at line start.
+
+    Go import statements are always at file scope, so `import` at the start
+    of a line (after whitespace) is always a real import, never inside a
+    string or variable assignment.
     """
     try:
         with open(filepath, encoding='utf-8', errors='replace') as f:
@@ -326,30 +413,184 @@ def extract_go_imports(filepath):
     except (IOError, OSError):
         return []
 
+    cleaned = _strip_go_comments(content)
     imports = []
-    # Single import: import "path"
-    for m in re.finditer(r'import\s+"([^"]+)"', content):
-        path = m.group(1)
-        if path not in imports:
-            imports.append(path)
-    # Grouped import: import ( "path" ... )
-    for block in re.finditer(r'import\s*\((.*?)\)', content, re.DOTALL):
-        for m in re.finditer(r'"([^"]+)"', block.group(1)):
-            path = m.group(1)
-            if path not in imports:
-                imports.append(path)
+    in_group = False
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Detect start of grouped import
+        if re.match(r'^import\s*\(', stripped):
+            in_group = True
+            continue
+
+        # Detect end of grouped import
+        if in_group and stripped.startswith(')'):
+            in_group = False
+            continue
+
+        if in_group:
+            # Inside import (...): extract "path" or alias "path"
+            m = re.match(r'\s*(?:\w+\s+)?"([^"]+)"', line)
+            if m:
+                path = m.group(1)
+                if path not in imports:
+                    imports.append(path)
+        elif stripped.startswith('import '):
+            # Single import: import "path" or import alias "path"
+            m = re.match(r'import\s+(?:\w+\s+)?"([^"]+)"', stripped)
+            if m:
+                path = m.group(1)
+                if path not in imports:
+                    imports.append(path)
+
     return imports
 
 
 # ---------------------------------------------------------------------------
-# Rust — regex fallback
+# Rust — comment-aware state-machine parser
 # ---------------------------------------------------------------------------
 
-def extract_rust_imports(filepath):
-    """Extract imports from Rust files using regex.
+def _strip_rust_comments(content):
+    """Strip Rust comments, preserving string content and line structure.
 
-    TODO: implement state-machine parser for Rust imports to avoid false
-    positives from comments and string literals.
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ with NESTED support (depth counter)
+    - Double-quoted strings: "..." with \\ escape sequences (preserved)
+    - Raw strings: r"...", r#"..."#, r##"..."## etc. (preserved)
+    - Byte strings: b"..." (preserved)
+    - Raw byte strings: br"...", br#"..."# (preserved)
+    - Character literals: '...' with \\ escapes (preserved, heuristic for lifetimes)
+
+    Only comment content is blanked. String content is preserved so that
+    line-level import detection can distinguish code from strings.
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=raw_string, 5=char_literal
+    state = 0
+    block_depth = 0
+    raw_hashes = 0  # number of # in current raw string delimiter
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    block_depth = 1
+                    i += 2; continue
+            # Raw strings: r"...", r#"..."#, r##"..."##
+            # Also br"...", br#"..."#
+            if ch in ('r', 'b') and i + 1 < n:
+                j = i
+                if ch == 'b' and content[j + 1] == 'r':
+                    j += 2
+                elif ch == 'r':
+                    j += 1
+                else:
+                    j = -1  # not a raw string
+                if j > 0 and j < n:
+                    hashes = 0
+                    while j < n and content[j] == '#':
+                        hashes += 1
+                        j += 1
+                    if j < n and content[j] == '"':
+                        raw_hashes = hashes
+                        state = 4
+                        i = j + 1; continue
+            if ch == 'b' and i + 1 < n and content[i + 1] == '"':
+                state = 3
+                i += 2; continue
+            if ch == '"':
+                state = 3
+                i += 1; continue
+            if ch == "'":
+                # Heuristic: distinguish char literal from lifetime
+                if i + 2 < n and content[i + 1] == '\\':
+                    state = 5
+                    i += 1; continue
+                if i + 2 < n and content[i + 2] == "'":
+                    state = 5
+                    i += 1; continue
+                # Otherwise likely a lifetime — skip
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment (nested)
+            if ch == '/' and i + 1 < n and content[i + 1] == '*':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth += 1
+                i += 2; continue
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth -= 1
+                if block_depth == 0:
+                    state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # raw string (preserved)
+            if ch == '"':
+                j = i + 1
+                hashes = 0
+                while j < n and content[j] == '#' and hashes < raw_hashes:
+                    hashes += 1
+                    j += 1
+                if hashes == raw_hashes:
+                    state = 0
+                    i = j; continue
+            i += 1
+
+        elif state == 5:  # char literal (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_rust_imports(filepath):
+    """Extract imports from Rust files using a comment-aware state machine.
+
+    Phase 1: strip comments (preserving strings and line structure).
+    Phase 2: line-by-line extraction — only match use/extern at line start.
+
+    Rust use/extern crate statements are at module scope, so `use` or
+    `extern crate` at the start of a line is always a real import.
     """
     try:
         with open(filepath, encoding='utf-8', errors='replace') as f:
@@ -357,11 +598,51 @@ def extract_rust_imports(filepath):
     except (IOError, OSError):
         return []
 
+    cleaned = _strip_rust_comments(content)
     imports = []
-    for m in re.finditer(r'(?:use|extern\s+crate)\s+([\w:]+)', content):
-        path = m.group(1)
-        if path not in imports:
-            imports.append(path)
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # Only match use/extern at line start
+        if not (stripped.startswith('use ') or
+                stripped.startswith('extern ')):
+            continue
+
+        # extern crate: extern crate serde;
+        m = re.match(r'extern\s+crate\s+(\w+)', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+            continue
+
+        # use with grouped imports: use std::{io, fs};
+        m = re.match(r'use\s+([\w:]+)::\{([^}]+)\}', stripped)
+        if m:
+            prefix = m.group(1)
+            items = m.group(2)
+            for item in items.split(','):
+                item = item.strip()
+                if ' as ' in item:
+                    item = item.split(' as ')[0].strip()
+                if item:
+                    full_path = prefix + '::' + item
+                    if full_path not in imports:
+                        imports.append(full_path)
+            continue
+
+        # Simple use: use std::collections::HashMap;
+        # Glob use: use std::io::*;
+        # Renamed: use std::io::Result as IoResult;
+        m = re.match(r'use\s+([\w:]+(?:::\*)?)\s*(?:as\s+\w+\s*)?;', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
     return imports
 
 

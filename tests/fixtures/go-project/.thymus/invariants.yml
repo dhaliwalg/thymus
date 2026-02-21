@@ -1,0 +1,14 @@
+invariants:
+  - id: boundary-handler-no-db
+    type: boundary
+    severity: error
+    description: "Handlers must not import database packages directly"
+    source_glob: "**/handler/*.go"
+    forbidden_imports:
+      - "database/sql"
+
+  - id: convention-go-test-colocation
+    type: convention
+    severity: warning
+    description: "Go source files should have corresponding test files"
+    rule: "For every **/*.go there should be a **/*_test.go"

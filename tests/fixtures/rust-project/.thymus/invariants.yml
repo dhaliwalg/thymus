@@ -1,0 +1,14 @@
+invariants:
+  - id: boundary-handler-no-db
+    type: boundary
+    severity: error
+    description: "Handlers must not import database crates directly"
+    source_glob: "**/handler/*.rs"
+    forbidden_imports:
+      - "sqlx**"
+
+  - id: convention-rust-test
+    type: convention
+    severity: warning
+    description: "Rust source files should have test modules"
+    rule: "For every src/**/*.rs there should be tests"
