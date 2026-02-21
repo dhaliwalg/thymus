@@ -123,11 +123,11 @@ ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
 |----------|------------------|-------|
 | JavaScript/TypeScript | AST-aware (state machine) | Handles comments, strings, template literals, regex |
 | Python | AST-aware (`ast` module) | Full stdlib parsing |
-| Go | Regex | Matches `import` declarations |
-| Rust | Regex | Matches `use` and `extern crate` |
-| Java | Regex | Matches `import` and `import static` |
+| Go | Comment-aware (state machine) | Handles `//`, `/* */`, strings, raw strings |
+| Rust | Comment-aware (state machine) | Handles nested `/* */`, raw strings with `r#"..."#` |
+| Java | Comment-aware (state machine) | Handles text blocks (`"""..."""`) |
 
-Framework detection: Next.js, Express, React, Django, FastAPI, Flask, Cargo, Maven, Gradle.
+Framework detection: Next.js, Express, React, Django, FastAPI, Flask, Gin, Echo, Fiber, Chi, Actix, Axum, Rocket, Cargo, Maven, Gradle.
 
 ## Installation
 

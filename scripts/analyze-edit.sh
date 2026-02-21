@@ -222,7 +222,8 @@ for ((i=0; i<invariant_count; i++)); do
         if [[ "$REL_PATH" =~ \.(ts|js|py|java|go|rs)$ ]] \
            && [[ ! "$REL_PATH" =~ \.(test|spec)\. ]] \
            && [[ ! "$REL_PATH" =~ \.d\.ts$ ]] \
-           && [[ ! "$REL_PATH" =~ (Test|Tests|IT|Spec)\.java$ ]]; then
+           && [[ ! "$REL_PATH" =~ (Test|Tests|IT|Spec)\.java$ ]] \
+           && [[ ! "$REL_PATH" =~ _test\.go$ ]]; then
           base="${file_path%.*}"
           ext="${file_path##*.}"
           has_test=false
@@ -247,6 +248,25 @@ for ((i=0; i<invariant_count; i++)); do
                  [ -f "${test_mirror_base}IT.java" ]; then
                 has_test=true
               fi
+            fi
+          elif [ "$ext" = "go" ]; then
+            basename_file=$(basename "${file_path}")
+            dir=$(dirname "${file_path}")
+            # Go convention: foo.go → foo_test.go in same directory
+            test_name="${basename_file%.go}_test.go"
+            if [ -f "${dir}/${test_name}" ]; then
+              has_test=true
+            fi
+          elif [ "$ext" = "rs" ]; then
+            # Rust convention: inline #[cfg(test)] module or tests/ directory
+            if grep -q '#\[cfg(test)\]' "${file_path}" 2>/dev/null; then
+              has_test=true
+            fi
+            # Check for integration test mirror: src/foo.rs → tests/foo.rs or tests/test_foo.rs
+            basename_no_ext=$(basename "${base}")
+            if [ -f "$PWD/tests/${basename_no_ext}.rs" ] || \
+               [ -f "$PWD/tests/test_${basename_no_ext}.rs" ]; then
+              has_test=true
             fi
           fi
           if [ "$has_test" = "false" ]; then

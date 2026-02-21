@@ -191,3 +191,104 @@ spring-mvc:
     source_glob: "**/model/*.java"
     forbidden_imports:
       - "**/service/**"
+
+go:
+  - id: go-test-colocation
+    type: convention
+    severity: warning
+    description: "Go source files should have corresponding test files"
+    rule: "For every **/*.go (excluding *_test.go), there should be a **/*_test.go in the same package"
+
+  - id: go-handler-no-direct-db
+    type: boundary
+    severity: error
+    description: "HTTP handlers must not import database packages directly"
+    source_glob: "**/handler/**/*.go"
+    forbidden_imports:
+      - "database/sql"
+      - "github.com/jackc/pgx/**"
+      - "github.com/go-sql-driver/mysql"
+      - "gorm.io/gorm"
+      - "github.com/jmoiron/sqlx"
+    reasoning: "Handlers should delegate to service or repository layers"
+
+  - id: go-handler-no-direct-db-handlers
+    type: boundary
+    severity: error
+    description: "HTTP handlers must not import database packages directly"
+    source_glob: "**/handlers/**/*.go"
+    forbidden_imports:
+      - "database/sql"
+      - "github.com/jackc/pgx/**"
+      - "github.com/go-sql-driver/mysql"
+      - "gorm.io/gorm"
+      - "github.com/jmoiron/sqlx"
+
+  - id: go-no-init-functions
+    type: pattern
+    severity: warning
+    description: "Avoid init() functions — they create implicit initialization order dependencies"
+    scope_glob: "**/*.go"
+    forbidden_pattern: "^func init\\(\\)"
+    scope_glob_exclude:
+      - "**/main.go"
+      - "**/*_test.go"
+
+  - id: go-no-dot-imports
+    type: pattern
+    severity: warning
+    description: "Dot imports pollute the namespace and reduce readability"
+    scope_glob: "**/*.go"
+    forbidden_pattern: "import\\s+\\."
+
+rust:
+  - id: rust-test-colocation
+    type: convention
+    severity: warning
+    description: "Rust source files should have corresponding test modules or test files"
+    rule: "For every src/**/*.rs (excluding test files), there should be tests"
+
+  - id: rust-handler-no-direct-db
+    type: boundary
+    severity: error
+    description: "HTTP handlers must not import database crates directly"
+    source_glob: "**/handler/**/*.rs"
+    forbidden_imports:
+      - "diesel"
+      - "sqlx"
+      - "sea_orm"
+      - "tokio_postgres"
+    reasoning: "Handlers should delegate to service or repository layers"
+
+  - id: rust-handler-no-direct-db-handlers
+    type: boundary
+    severity: error
+    description: "HTTP handlers must not import database crates directly"
+    source_glob: "**/handlers/**/*.rs"
+    forbidden_imports:
+      - "diesel"
+      - "sqlx"
+      - "sea_orm"
+      - "tokio_postgres"
+
+  - id: rust-no-unwrap-in-lib
+    type: pattern
+    severity: warning
+    description: "Avoid .unwrap() in library code — use proper error handling"
+    scope_glob: "src/**/*.rs"
+    forbidden_pattern: "\\.unwrap\\(\\)"
+    scope_glob_exclude:
+      - "src/main.rs"
+      - "**/*test*"
+      - "**/tests/**"
+
+  - id: rust-no-unsafe-outside-ffi
+    type: pattern
+    severity: warning
+    description: "Restrict unsafe blocks to FFI modules"
+    scope_glob: "src/**/*.rs"
+    forbidden_pattern: "unsafe\\s*\\{"
+    scope_glob_exclude:
+      - "**/ffi/**"
+      - "**/bindings/**"
+      - "**/sys/**"

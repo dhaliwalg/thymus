@@ -94,6 +94,44 @@ detect_framework() {
     else
       echo "unknown"
     fi
+  elif [ "$lang" = "go" ]; then
+    if [ -f "$PROJECT_ROOT/go.mod" ]; then
+      if grep -q "github.com/gin-gonic/gin" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "gin"
+      elif grep -q "github.com/labstack/echo" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "echo"
+      elif grep -q "github.com/gofiber/fiber" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "fiber"
+      elif grep -q "github.com/gorilla/mux" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "gorilla"
+      elif grep -q "github.com/go-chi/chi" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "chi"
+      elif grep -q "net/http" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
+        echo "stdlib-http"
+      else
+        echo "unknown"
+      fi
+    else
+      echo "unknown"
+    fi
+  elif [ "$lang" = "rust" ]; then
+    if [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
+      if grep -q "actix-web" "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
+        echo "actix"
+      elif grep -q "axum" "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
+        echo "axum"
+      elif grep -q "rocket" "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
+        echo "rocket"
+      elif grep -q "warp" "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
+        echo "warp"
+      elif grep -q "tide" "$PROJECT_ROOT/Cargo.toml" 2>/dev/null; then
+        echo "tide"
+      else
+        echo "unknown"
+      fi
+    else
+      echo "unknown"
+    fi
   else
     echo "unknown"
   fi
@@ -210,8 +248,16 @@ get_cross_module_imports() {
     _get_cross_module_imports_java
     return
   fi
+  if [ "$lang" = "go" ]; then
+    _get_cross_module_imports_go
+    return
+  fi
+  if [ "$lang" = "rust" ]; then
+    _get_cross_module_imports_rust
+    return
+  fi
 
-  # JS/TS/Python/Go: get top-level source dirs (depth 1 under src/ or project root)
+  # JS/TS/Python: get top-level source dirs (depth 1 under src/ or project root)
   local src_root="$PROJECT_ROOT/src"
   [ -d "$src_root" ] || src_root="$PROJECT_ROOT"
 
@@ -322,6 +368,102 @@ _get_cross_module_imports_java() {
 
   result=$(cat /tmp/thymus-java-xmod-$$.tmp 2>/dev/null || true)
   rm -f /tmp/thymus-java-xmod-$$.tmp
+
+  if [ -n "$result" ]; then
+    echo "$result" | jq -s .
+  else
+    echo "[]"
+  fi
+}
+
+_get_cross_module_imports_go() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local extractor="$script_dir/extract-imports.py"
+
+  # Read module path from go.mod
+  local module_path=""
+  if [ -f "$PROJECT_ROOT/go.mod" ]; then
+    module_path=$(grep '^module ' "$PROJECT_ROOT/go.mod" 2>/dev/null | awk '{print $2}')
+  fi
+  if [ -z "$module_path" ]; then
+    echo "[]"
+    return
+  fi
+
+  # Find all Go packages (directories with .go files) under src/ or project root
+  local src_root="$PROJECT_ROOT/src"
+  [ -d "$src_root" ] || src_root="$PROJECT_ROOT"
+
+  local result=""
+  find "$src_root" -name "*.go" -not -name "*_test.go" -type f \
+    "${IGNORED_FIND_ARGS[@]}" 2>/dev/null | while read -r go_file; do
+    local from_dir
+    from_dir=$(dirname "$go_file")
+    local from_module
+    from_module=$(basename "$from_dir")
+
+    python3 "$extractor" "$go_file" 2>/dev/null | while read -r imp; do
+      if echo "$imp" | grep -q "^${module_path}/"; then
+        local rel_import
+        rel_import=$(echo "$imp" | sed "s|^${module_path}/||")
+        # Get first directory segment after module root as package name
+        # Handle src/ prefix if present
+        local to_module
+        to_module=$(echo "$rel_import" | sed 's|^src/||' | cut -d/ -f1)
+        if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
+          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+        fi
+      fi
+    done
+  done | sort -u > /tmp/thymus-go-xmod-$$.tmp
+
+  result=$(cat /tmp/thymus-go-xmod-$$.tmp 2>/dev/null || true)
+  rm -f /tmp/thymus-go-xmod-$$.tmp
+
+  if [ -n "$result" ]; then
+    echo "$result" | jq -s .
+  else
+    echo "[]"
+  fi
+}
+
+_get_cross_module_imports_rust() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local extractor="$script_dir/extract-imports.py"
+
+  local src_root="$PROJECT_ROOT/src"
+  if [ ! -d "$src_root" ]; then
+    echo "[]"
+    return
+  fi
+
+  local result=""
+  find "$src_root" -name "*.rs" -type f \
+    "${IGNORED_FIND_ARGS[@]}" 2>/dev/null | while read -r rs_file; do
+    local from_dir
+    from_dir=$(dirname "$rs_file")
+    local from_module
+    from_module=$(basename "$from_dir")
+    # If file is directly in src/, use the filename (without extension) as module
+    if [ "$from_dir" = "$src_root" ]; then
+      from_module=$(basename "${rs_file%.rs}")
+    fi
+
+    python3 "$extractor" "$rs_file" 2>/dev/null | while read -r imp; do
+      if echo "$imp" | grep -q "^crate::"; then
+        local to_module
+        to_module=$(echo "$imp" | sed 's|^crate::||' | cut -d: -f1)
+        if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
+          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+        fi
+      fi
+    done
+  done | sort -u > /tmp/thymus-rust-xmod-$$.tmp
+
+  result=$(cat /tmp/thymus-rust-xmod-$$.tmp 2>/dev/null || true)
+  rm -f /tmp/thymus-rust-xmod-$$.tmp
 
   if [ -n "$result" ]; then
     echo "$result" | jq -s .

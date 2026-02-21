@@ -108,6 +108,10 @@ if framework != 'unknown' and framework in sections:
 SKIP_RULES = set()
 if language == 'java':
     SKIP_RULES.add('generic-test-colocation')
+if language == 'go':
+    SKIP_RULES.add('generic-test-colocation')
+if language == 'rust':
+    SKIP_RULES.add('generic-test-colocation')
 
 rules = []
 for section in targets:

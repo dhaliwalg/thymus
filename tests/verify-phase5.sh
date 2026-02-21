@@ -88,6 +88,37 @@ GO_OUT=$(cd "$TMPDIR_GO" && bash "$SCAN_DEPS" "$TMPDIR_GO" 2>/dev/null || true)
 check_json "detects go language" ".language" "go" "$GO_OUT"
 rm -rf "$TMPDIR_GO"
 
+# Go + Gin framework detection
+TMPDIR_GO2=$(mktemp -d)
+cat > "$TMPDIR_GO2/go.mod" << 'GOMOD'
+module github.com/example/myapp
+
+go 1.21
+
+require github.com/gin-gonic/gin v1.9.1
+GOMOD
+GO2_OUT=$(cd "$TMPDIR_GO2" && bash "$SCAN_DEPS" "$TMPDIR_GO2" 2>/dev/null || true)
+check_json "detects gin framework" ".framework" "gin" "$GO2_OUT"
+rm -rf "$TMPDIR_GO2"
+
+# Rust + Axum detection
+TMPDIR_RS=$(mktemp -d)
+cat > "$TMPDIR_RS/Cargo.toml" << 'TOML'
+[package]
+name = "myapp"
+version = "0.1.0"
+
+[dependencies]
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+TOML
+mkdir -p "$TMPDIR_RS/src"
+echo 'fn main() {}' > "$TMPDIR_RS/src/main.rs"
+RS_OUT=$(cd "$TMPDIR_RS" && bash "$SCAN_DEPS" "$TMPDIR_RS" 2>/dev/null || true)
+check_json "detects rust language" ".language" "rust" "$RS_OUT"
+check_json "detects axum framework" ".framework" "axum" "$RS_OUT"
+rm -rf "$TMPDIR_RS"
+
 # --- Task 4: edge case hardening ---
 echo ""
 echo "analyze-edit.sh edge cases:"
@@ -159,6 +190,66 @@ if [ -d "$PYTHON_FIXTURE" ]; then
     echo "    output: $PY_SCAN"
     ((failed++)) || true
   fi
+fi
+
+# --- Go fixture scan ---
+echo ""
+echo "Go fixture scan:"
+
+GO_FIXTURE="$ROOT/tests/fixtures/go-project"
+if [ -d "$GO_FIXTURE" ]; then
+  echo "  ✓ go-project fixture exists"
+  ((passed++)) || true
+  GO_SCAN=$(cd "$GO_FIXTURE" && bash "$SCAN" 2>/dev/null)
+  if echo "$GO_SCAN" | jq -e '[.violations[].rule] | any(. == "boundary-handler-no-db")' > /dev/null 2>&1; then
+    echo "  ✓ Go project scan detects boundary-handler-no-db violation"
+    ((passed++)) || true
+  else
+    echo "  ✗ Go project scan did not detect boundary-handler-no-db"
+    echo "    output: $GO_SCAN"
+    ((failed++)) || true
+  fi
+  # Should NOT flag user_handler.go with boundary violation (clean file)
+  if echo "$GO_SCAN" | jq -e '[.violations[] | select(.file | contains("user_handler")) | select(.rule == "boundary-handler-no-db")] | length == 0' > /dev/null 2>&1; then
+    echo "  ✓ Go project scan does not flag clean handler with boundary violation"
+    ((passed++)) || true
+  else
+    echo "  ✗ Go project scan false-positive on user_handler.go"
+    ((failed++)) || true
+  fi
+else
+  echo "  ✗ go-project fixture missing"
+  ((failed++)) || true
+fi
+
+# --- Rust fixture scan ---
+echo ""
+echo "Rust fixture scan:"
+
+RUST_FIXTURE="$ROOT/tests/fixtures/rust-project"
+if [ -d "$RUST_FIXTURE" ]; then
+  echo "  ✓ rust-project fixture exists"
+  ((passed++)) || true
+  RUST_SCAN=$(cd "$RUST_FIXTURE" && bash "$SCAN" 2>/dev/null)
+  if echo "$RUST_SCAN" | jq -e '[.violations[].rule] | any(. == "boundary-handler-no-db")' > /dev/null 2>&1; then
+    echo "  ✓ Rust project scan detects boundary-handler-no-db violation"
+    ((passed++)) || true
+  else
+    echo "  ✗ Rust project scan did not detect boundary-handler-no-db"
+    echo "    output: $RUST_SCAN"
+    ((failed++)) || true
+  fi
+  # Should NOT flag user_handler.rs with boundary violation (clean file)
+  if echo "$RUST_SCAN" | jq -e '[.violations[] | select(.file | contains("user_handler")) | select(.rule == "boundary-handler-no-db")] | length == 0' > /dev/null 2>&1; then
+    echo "  ✓ Rust project scan does not flag clean handler with boundary violation"
+    ((passed++)) || true
+  else
+    echo "  ✗ Rust project scan false-positive on user_handler.rs"
+    ((failed++)) || true
+  fi
+else
+  echo "  ✗ rust-project fixture missing"
+  ((failed++)) || true
 fi
 
 # --- AST import extraction ---
