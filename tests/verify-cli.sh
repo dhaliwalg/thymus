@@ -120,6 +120,61 @@ check "files flag scans specific file" "boundary-routes-no-direct-db" "$output"
 text_output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus-scan" --format text 2>/dev/null || true)
 check "text format shows violation count" "violation" "$text_output"
 
+# --- thymus-init ---
+echo ""
+echo "thymus-init:"
+
+# Test: init creates .thymus/ with starter files
+TMPDIR_INIT=$(mktemp -d)
+"$ROOT/bin/thymus-init" "$TMPDIR_INIT" > /dev/null 2>&1
+if [ -f "$TMPDIR_INIT/.thymus/invariants.yml" ]; then
+  echo "  ✓ creates invariants.yml"
+  ((passed++)) || true
+else
+  echo "  ✗ invariants.yml not created"
+  ((failed++)) || true
+fi
+if [ -f "$TMPDIR_INIT/.thymus/config.yml" ]; then
+  echo "  ✓ creates config.yml"
+  ((passed++)) || true
+else
+  echo "  ✗ config.yml not created"
+  ((failed++)) || true
+fi
+
+# Test: invariants.yml is valid YAML with at least a version field
+if grep -q "version:" "$TMPDIR_INIT/.thymus/invariants.yml" 2>/dev/null; then
+  echo "  ✓ invariants.yml has version field"
+  ((passed++)) || true
+else
+  echo "  ✗ invariants.yml missing version"
+  ((failed++)) || true
+fi
+
+# Test: init does not overwrite existing files
+echo "custom: true" > "$TMPDIR_INIT/.thymus/config.yml"
+"$ROOT/bin/thymus-init" "$TMPDIR_INIT" > /dev/null 2>&1 || true
+if grep -q "custom: true" "$TMPDIR_INIT/.thymus/config.yml" 2>/dev/null; then
+  echo "  ✓ does not overwrite existing config"
+  ((passed++)) || true
+else
+  echo "  ✗ overwrote existing config"
+  ((failed++)) || true
+fi
+
+# Test: init with no args uses $PWD
+TMPDIR_INIT2=$(mktemp -d)
+(cd "$TMPDIR_INIT2" && "$ROOT/bin/thymus-init") > /dev/null 2>&1
+if [ -f "$TMPDIR_INIT2/.thymus/invariants.yml" ]; then
+  echo "  ✓ init with no args uses PWD"
+  ((passed++)) || true
+else
+  echo "  ✗ init with no args failed"
+  ((failed++)) || true
+fi
+
+rm -rf "$TMPDIR_INIT" "$TMPDIR_INIT2"
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1
