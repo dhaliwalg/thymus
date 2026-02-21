@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Thymus Violations",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["file", "rule_id", "severity", "message"],
+    "properties": {
+      "file": {
+        "type": "string",
+        "description": "Relative path from project root"
+      },
+      "line": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Line number of the violation (1-indexed). Null if file-level."
+      },
+      "column": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Column number (1-indexed). Optional."
+      },
+      "rule_id": {
+        "type": "string",
+        "description": "Unique invariant identifier from invariants.yml"
+      },
+      "rule_name": {
+        "type": "string",
+        "description": "Human-readable rule name"
+      },
+      "severity": {
+        "type": "string",
+        "enum": ["error", "warn", "info"]
+      },
+      "message": {
+        "type": "string",
+        "description": "Human-readable violation description"
+      },
+      "source_module": {
+        "type": "string",
+        "description": "Module that contains the violating file"
+      },
+      "target_module": {
+        "type": "string",
+        "description": "Module being imported in violation of the rule"
+      },
+      "import_path": {
+        "type": "string",
+        "description": "The actual import statement that triggered the violation"
+      }
+    }
+  }
+}
