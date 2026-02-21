@@ -123,3 +123,71 @@ fastapi:
   #   severity: warning
   #   description: "Pydantic request/response schemas should be in a dedicated schemas module"
   #   rule: "Classes inheriting from BaseModel should live in schemas/ or models/"
+
+java:
+  - id: java-test-colocation
+    type: convention
+    severity: warning
+    description: "Java source classes should have corresponding test classes"
+    rule: "For every src/main/java/**/*.java, there should be a src/test/java/**/*Test.java"
+
+  - id: java-no-wildcard-imports
+    type: pattern
+    severity: warning
+    description: "Wildcard imports reduce readability and can cause name collisions"
+    scope_glob: "**/*.java"
+    forbidden_pattern: "^import\\s+[\\w.]+\\.\\*;"
+
+spring-boot:
+  - id: springboot-controller-no-repository
+    type: boundary
+    severity: error
+    description: "Controllers must not import repositories directly"
+    source_glob: "**/controller/*.java"
+    forbidden_imports:
+      - "**/repository/**"
+      - "**/dao/**"
+    reasoning: "Controllers should delegate to services, not access the data layer directly"
+
+  - id: springboot-model-no-service
+    type: boundary
+    severity: error
+    description: "Models and entities must not import services"
+    source_glob: "**/model/*.java"
+    forbidden_imports:
+      - "**/service/**"
+    reasoning: "Models are data carriers — they should not depend on business logic"
+
+  - id: springboot-entity-no-service
+    type: boundary
+    severity: error
+    description: "Entities must not import services"
+    source_glob: "**/entity/*.java"
+    forbidden_imports:
+      - "**/service/**"
+
+  - id: springboot-no-autowired-field-injection
+    type: pattern
+    severity: warning
+    description: "Prefer constructor injection over @Autowired field injection"
+    scope_glob: "**/*.java"
+    forbidden_pattern: "@Autowired\\s+(private|protected|public)"
+
+spring-mvc:
+  - id: springmvc-controller-no-repository
+    type: boundary
+    severity: error
+    description: "Controllers must not import repositories directly"
+    source_glob: "**/controller/*.java"
+    forbidden_imports:
+      - "**/repository/**"
+      - "**/dao/**"
+    reasoning: "Controllers should delegate to services, not access the data layer directly"
+
+  - id: springmvc-model-no-service
+    type: boundary
+    severity: error
+    description: "Models must not import services"
+    source_glob: "**/model/*.java"
+    forbidden_imports:
+      - "**/service/**"

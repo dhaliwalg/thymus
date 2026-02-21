@@ -135,9 +135,15 @@ import_is_forbidden() {
   local invariant_json="$2"
   local count
   count=$(echo "$invariant_json" | jq '.forbidden_imports | length' 2>/dev/null || echo 0)
+  # For Java dot-separated imports, also try matching as a path (dots -> slashes)
+  local import_as_path="$import"
+  if [[ "$import" == *.* ]] && [[ "$import" != */* ]]; then
+    import_as_path=$(printf '%s' "$import" | tr '.' '/')
+  fi
   for ((f=0; f<count; f++)); do
     pattern=$(echo "$invariant_json" | jq -r ".forbidden_imports[$f]")
-    if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ]; then
+    if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ] \
+       || path_matches "$import_as_path" "$pattern"; then
       return 0
     fi
   done
@@ -213,12 +219,37 @@ for ((i=0; i<invariant_count; i++)); do
       [ -f "$file_path" ] || continue
       rule_text=$(echo "$inv" | jq -r '.rule // empty')
       if echo "$rule_text" | grep -qi "test"; then
-        if [[ "$REL_PATH" =~ \.(ts|js|py)$ ]] \
+        if [[ "$REL_PATH" =~ \.(ts|js|py|java|go|rs)$ ]] \
            && [[ ! "$REL_PATH" =~ \.(test|spec)\. ]] \
-           && [[ ! "$REL_PATH" =~ \.d\.ts$ ]]; then
+           && [[ ! "$REL_PATH" =~ \.d\.ts$ ]] \
+           && [[ ! "$REL_PATH" =~ (Test|Tests|IT|Spec)\.java$ ]]; then
           base="${file_path%.*}"
           ext="${file_path##*.}"
-          if ! { [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; }; then
+          has_test=false
+          if [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; then
+            has_test=true
+          elif [ "$ext" = "java" ]; then
+            # Java convention: FooTest.java, FooTests.java, FooIT.java
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            # Check same directory
+            if [ -f "${dir}/${basename_no_ext}Test.java" ] || \
+               [ -f "${dir}/${basename_no_ext}Tests.java" ] || \
+               [ -f "${dir}/${basename_no_ext}IT.java" ]; then
+              has_test=true
+            fi
+            # Check src/test/java mirror of src/main/java
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/src/main/java/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|src/main/java|src/test/java|')
+              test_mirror_base="${test_mirror%.*}"
+              if [ -f "${test_mirror_base}Test.java" ] || \
+                 [ -f "${test_mirror_base}Tests.java" ] || \
+                 [ -f "${test_mirror_base}IT.java" ]; then
+                has_test=true
+              fi
+            fi
+          fi
+          if [ "$has_test" = "false" ]; then
             SEV_UPPER=$(echo "$severity" | tr '[:lower:]' '[:upper:]')
             msg="[$SEV_UPPER] $rule_id: missing test file for $REL_PATH"
             violation_lines+=("$msg")
@@ -245,8 +276,9 @@ for ((i=0; i<invariant_count; i++)); do
         fi
       done
       $in_allowed && continue
-      # Check if the file imports the package
-      if grep -qE "(from|require|import)[[:space:]]*['\"]${package}['\"]|from ${package} import|import ${package}" "$file_path" 2>/dev/null; then
+      # Check if the file imports the package (using AST-aware extractor)
+      file_imports=$(extract_imports "$file_path")
+      if echo "$file_imports" | grep -qF "$package" 2>/dev/null; then
         SEV_UPPER=$(echo "$severity" | tr '[:lower:]' '[:upper:]')
         msg="[$SEV_UPPER] $rule_id: $description (package: $package)"
         violation_lines+=("$msg")
@@ -267,7 +299,7 @@ CALIBRATION_FILE="$THYMUS_DIR/calibration.json"
 [ -f "$CALIBRATION_FILE" ] || echo '{"rules":{}}' > "$CALIBRATION_FILE"
 
 PREV_RULES=$(jq -r --arg f "$REL_PATH" '[.[] | select(.file == $f) | .rule] | unique[]' "$SESSION_VIOLATIONS" 2>/dev/null || true)
-CURR_RULES=$(printf '%s\n' "${new_violation_objects[@]+\"${new_violation_objects[@]}\"}" \
+CURR_RULES=$(printf '%s\n' "${new_violation_objects[@]}" \
   | jq -r '.rule' 2>/dev/null | sort -u || true)
 
 CAL_EVENTS=()
@@ -303,10 +335,9 @@ fi
 
 [ ${#violation_lines[@]} -eq 0 ] && exit 0
 
-for obj in "${new_violation_objects[@]}"; do
-  updated=$(jq --argjson v "$obj" '. + [$v]' "$SESSION_VIOLATIONS")
-  echo "$updated" > "$SESSION_VIOLATIONS"
-done
+ALL_NEW_JSON=$(printf '%s\n' "${new_violation_objects[@]}" | jq -s '.')
+jq --argjson new "$ALL_NEW_JSON" '. + $new' "$SESSION_VIOLATIONS" > "$SESSION_VIOLATIONS.tmp"
+mv "$SESSION_VIOLATIONS.tmp" "$SESSION_VIOLATIONS"
 
 msg_body="thymus: ${#violation_lines[@]} violation(s) in $REL_PATH\n"
 for line in "${violation_lines[@]}"; do

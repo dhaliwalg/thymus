@@ -369,20 +369,74 @@ def extract_rust_imports(filepath):
 # Java — regex fallback
 # ---------------------------------------------------------------------------
 
-def extract_java_imports(filepath):
-    """Extract imports from Java files using regex.
+def _strip_java_comments(content):
+    """Strip Java block comments and line comments, preserving string literals."""
+    result = []
+    i = 0
+    n = len(content)
+    while i < n:
+        c = content[i]
+        # String literal (double-quoted)
+        if c == '"':
+            result.append(c)
+            i += 1
+            while i < n and content[i] != '"':
+                if content[i] == '\\':
+                    result.append(content[i])
+                    i += 1
+                    if i < n:
+                        result.append(content[i])
+                        i += 1
+                else:
+                    result.append(content[i])
+                    i += 1
+            if i < n:
+                result.append(content[i])
+                i += 1
+        # Character literal
+        elif c == "'":
+            result.append(c)
+            i += 1
+            while i < n and content[i] != "'":
+                if content[i] == '\\':
+                    result.append(content[i])
+                    i += 1
+                    if i < n:
+                        result.append(content[i])
+                        i += 1
+                else:
+                    result.append(content[i])
+                    i += 1
+            if i < n:
+                result.append(content[i])
+                i += 1
+        # Line comment
+        elif c == '/' and i + 1 < n and content[i + 1] == '/':
+            while i < n and content[i] != '\n':
+                i += 1
+        # Block comment
+        elif c == '/' and i + 1 < n and content[i + 1] == '*':
+            i += 2
+            while i + 1 < n and not (content[i] == '*' and content[i + 1] == '/'):
+                i += 1
+            i += 2  # skip */
+        else:
+            result.append(c)
+            i += 1
+    return ''.join(result)
 
-    TODO: implement state-machine parser for Java imports to avoid false
-    positives from comments and string literals.
-    """
+
+def extract_java_imports(filepath):
+    """Extract imports from Java files with comment/string awareness."""
     try:
         with open(filepath, encoding='utf-8', errors='replace') as f:
             content = f.read()
     except (IOError, OSError):
         return []
 
+    stripped = _strip_java_comments(content)
     imports = []
-    for m in re.finditer(r'import\s+(?:static\s+)?([\w.]+)', content):
+    for m in re.finditer(r'import\s+(?:static\s+)?([\w.*]+)', stripped):
         path = m.group(1)
         if path not in imports:
             imports.append(path)
