@@ -1,8 +1,8 @@
-# Architectural Immune System (AIS)
+# Thymus
 
 A Claude Code plugin that watches your codebase for architectural drift and enforces structural invariants as you write code.
 
-Claude generates a lot of code fast. Over time, architecture quietly rots — boundary violations, inconsistent patterns, modules that should never talk to each other suddenly do. AIS is the immune system: it learns what healthy looks like and warns when things go wrong, before the mess compounds.
+Code gets generated fast. Over time, architecture quietly rots — boundary violations, inconsistent patterns, modules that should never talk to each other suddenly do. Thymus is the immune system: it learns what healthy looks like and warns when things go wrong, before the mess compounds.
 
 ---
 
@@ -10,7 +10,7 @@ Claude generates a lot of code fast. Over time, architecture quietly rots — bo
 
 **Install**
 ```
-/plugin install architectural-immune-system
+/plugin install thymus
 ```
 
 **Initialize** (once per project)
@@ -20,7 +20,7 @@ Claude generates a lot of code fast. Over time, architecture quietly rots — bo
 
 Scans the project, proposes invariants, waits for your approval before saving anything.
 
-That's it. AIS now checks every file you edit against your rules.
+That's it. Thymus now checks every file you edit against your rules.
 
 **Check health**
 ```
@@ -35,7 +35,7 @@ Three hooks:
 
 | Hook | What it does |
 |------|-------------|
-| Every file edit | Checks the file against your invariants. Warns Claude immediately if something's wrong. |
+| Every file edit | Checks the file against your invariants. Warns immediately if something's wrong. |
 | Session start | Injects a compact health summary into context. |
 | Session end | Summarizes violations, writes a history snapshot, flags rules that keep firing. |
 
@@ -69,7 +69,7 @@ Scan the whole project (or a subdirectory) right now.
 Full health report with trend data. Generates `.ais/report.html`.
 
 ### `/ais:learn`
-Teach AIS a new rule in plain English.
+Teach Thymus a new rule in plain English.
 
 ```
 /ais:learn all database queries must go through the repository layer
@@ -77,7 +77,7 @@ Teach AIS a new rule in plain English.
 /ais:learn never use raw SQL outside src/db
 ```
 
-AIS translates it to YAML and asks for confirmation before saving.
+Translates it to YAML and asks for confirmation before saving.
 
 ### `/ais:configure`
 Adjust thresholds and ignored paths via `.ais/config.yml`.
@@ -186,8 +186,8 @@ language: typescript   # auto-detected; override if needed
 
 ## FAQ
 
-**A rule keeps firing but I always fix it. Can AIS adjust automatically?**
-AIS tracks this in `.ais/calibration.json`. After enough data points, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/calibrate-severity.sh` to get downgrade recommendations.
+**A rule keeps firing but I always fix it. Can Thymus adjust automatically?**
+Thymus tracks this in `.ais/calibration.json`. After enough data points, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/calibrate-severity.sh` to get downgrade recommendations.
 
 **I refactored and the baseline is stale.**
 Run `/ais:baseline --refresh`.
@@ -195,10 +195,10 @@ Run `/ais:baseline --refresh`.
 **How do I share invariants with my team?**
 Commit `.ais/invariants.yml` and `.ais/baseline.json`. Add `.ais/history/` and `.ais/report.html` to `.gitignore`.
 
-**Does AIS block edits?**
-No. It warns Claude but never blocks. Blocking mid-task causes confusing behavior — a warning gives Claude what it needs to self-correct.
+**Does Thymus block edits?**
+No. It warns but never blocks. Blocking mid-task causes confusing behavior — a warning gives the context needed to self-correct.
 
-**AIS is flagging something that's intentional.**
+**Thymus is flagging something that's intentional.**
 Edit `.ais/invariants.yml` directly and change the severity to `info`, or remove the rule.
 
 ---

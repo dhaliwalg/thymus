@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to AIS (Architectural Immune System) are documented here.
+All notable changes to Thymus are documented here.
 
 ## [1.0.0] — 2026-02-20
 

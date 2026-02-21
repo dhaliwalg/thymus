@@ -1,6 +1,6 @@
 {
-"name": "claude-immune-system",
-"description": "Continuous codebase health monitoring that catches drift before it compounds",
+"name": "thymus",
+"description": "Continuous codebase health monitoring that catches architectural drift before it compounds",
 "version": "1.0.0",
 "author": {
 "name": "Gurjit Dhaliwal"
