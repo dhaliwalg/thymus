@@ -96,15 +96,15 @@ for i, v in enumerate(vals):
     x = i * (w - 1) / max(len(vals) - 1, 1)
     y = h - ((v - mn) / rng) * (h - 8) - 4
     pts.append(f'{x:.1f},{y:.1f}')
-color = '#4ade80' if vals[-1] >= vals[0] else '#f87171'
-print(f'<polyline points=\"{\" \".join(pts)}\" stroke=\"{color}\" stroke-width=\"2\" fill=\"none\" stroke-linejoin=\"round\"/>')
+color = '#34c759' if vals[-1] >= vals[0] else '#ff3b30'
+print(f'<polyline points=\"{\" \".join(pts)}\" stroke=\"{color}\" stroke-width=\"1.5\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>')
 " 2>/dev/null || true)
 fi
 
-# --- Module breakdown table ---
+# --- Module breakdown ---
 MODULE_TABLE_HTML=$(echo "$SCAN" | jq -r '
   if (.violations | length) == 0 then
-    "<tr><td colspan=\"3\" style=\"color:#4ade80\">All modules clean ✓</td></tr>"
+    "<li class=\"mod-row\"><div class=\"all-clear\"><span class=\"clr-dot\"></span>All modules clean</div></li>"
   else
     .violations
     | group_by(.file | split("/")[0:2] | join("/"))
@@ -116,22 +116,22 @@ MODULE_TABLE_HTML=$(echo "$SCAN" | jq -r '
     | sort_by(-.errors, -.warnings)
     | .[:15]
     | .[]
-    | "<tr><td><code>\(.module)</code></td><td class=\"e\">\(.errors)</td><td class=\"w\">\(.warnings)</td></tr>"
+    | "<li class=\"mod-row\"><span class=\"mod-name\">\(.module)</span><div class=\"mod-counts\"><span class=\"cnt\"><span class=\"dot e\"></span><span class=\"cnt-n \(if .errors > 0 then "e" else "" end)\">\(.errors)</span></span><span class=\"cnt\"><span class=\"dot w\"></span><span class=\"cnt-n \(if .warnings > 0 then "w" else "" end)\">\(.warnings)</span></span></div></li>"
   end
-' 2>/dev/null || echo "<tr><td colspan=\"3\">Error computing modules</td></tr>")
+' 2>/dev/null || echo "<li><p style=\"color:#aeaeb2\">Error computing modules</p></li>")
 
 # --- Top violations list ---
 VIOLATIONS_HTML=$(echo "$SCAN" | jq -r '
   if (.violations | length) == 0 then
-    "<p style=\"color:#4ade80\">No violations found ✓</p>"
+    "<li class=\"viol-row\" style=\"border-bottom:none\"><div class=\"all-clear\"><span class=\"clr-dot\"></span>No violations found</div></li>"
   else
     .violations
     | sort_by(if .severity == "error" then 0 else 1 end, .rule)
     | .[:30]
     | .[]
-    | "<div class=\"v \(.severity)\"><span class=\"badge\">\(.severity | ascii_upcase)</span> <code>\(.rule)</code> — <span class=\"filepath\">\(.file)\(if (.line != null and .line != "") then ":\(.line)" else "" end)</span></div>"
+    | "<li class=\"viol-row\"><span class=\"viol-bar \(.severity)\"></span><div class=\"viol-info\"><div class=\"viol-rule\">\(.rule)</div><div class=\"viol-file\">\(.file)\(if (.line != null and .line != "") then ":\(.line)" else "" end)</div></div><span class=\"sev-tag \(.severity)\">\(.severity | ascii_upcase)</span></li>"
   end
-' 2>/dev/null || echo "<p>Error computing violations</p>")
+' 2>/dev/null || echo "<li><p style=\"color:#aeaeb2\">Error computing violations</p></li>")
 
 # --- Debt projection callout ---
 PROJECTION_HTML=""
@@ -142,16 +142,16 @@ if [ -n "$PROJECTION_JSON" ]; then
   REC=$(echo "$PROJECTION_JSON" | jq -r '.recommendation // ""')
   if [ -n "$VELOCITY" ] && [ "$VELOCITY" != "null" ]; then
     TREND_ICON="→"
-    [ "$TREND" = "degrading" ] && TREND_ICON="📈"
-    [ "$TREND" = "improving" ] && TREND_ICON="📉"
-    PROJECTION_HTML="<div class=\"proj\"><h2>$TREND_ICON Debt Projection</h2><p><strong>Trend:</strong> $TREND | <strong>30-day projection:</strong> +$PROJ_30 violations at current rate ($VELOCITY/day)</p>$([ -n "$REC" ] && echo "<p class=\"rec\">$REC</p>")</div>"
+    [ "$TREND" = "degrading" ] && TREND_ICON="↗"
+    [ "$TREND" = "improving" ] && TREND_ICON="↘"
+    PROJECTION_HTML="<section><p class=\"sec-head\">Debt Projection</p><hr><div class=\"proj-card\"><p class=\"proj-title\">$TREND_ICON Trend: $TREND</p><p class=\"proj-body\"><b>Velocity:</b> $VELOCITY violations/day &middot; <b>30-day projection:</b> +$PROJ_30 violations</p>$([ -n "$REC" ] && echo "<p class=\"proj-rec\">$REC</p>")</div></section>"
   fi
 fi
 
 # --- Score color ---
-SCORE_COLOR="#4ade80"
-[ "$SCORE" -lt 80 ] && SCORE_COLOR="#facc15"
-[ "$SCORE" -lt 50 ] && SCORE_COLOR="#f87171"
+SCORE_COLOR="#34c759"
+[ "$SCORE" -lt 80 ] && SCORE_COLOR="#ff9500"
+[ "$SCORE" -lt 50 ] && SCORE_COLOR="#ff3b30"
 
 SCOPE_LABEL="entire project"
 [ -n "$SCOPE" ] && SCOPE_LABEL="$SCOPE"
@@ -164,82 +164,213 @@ cat > "$REPORT_FILE" <<HTMLEOF
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIS Health Report</title>
+  <title>AIS Architectural Health</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f172a; color: #e2e8f0;
-      max-width: 960px; margin: 0 auto; padding: 32px 24px;
-      line-height: 1.5;
+      font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      background: #fff;
+      color: #1d1d1f;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 56px 40px 80px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    h1 { font-size: 24px; font-weight: 700; color: #f8fafc; margin: 0 0 4px; }
-    h2 { font-size: 16px; font-weight: 600; color: #94a3b8; text-transform: uppercase;
-         letter-spacing: .05em; border-bottom: 1px solid #1e293b;
-         padding-bottom: 8px; margin: 32px 0 12px; }
-    .meta { color: #475569; font-size: 13px; margin-bottom: 28px; }
-    .score-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px; }
-    .score { font-size: 80px; font-weight: 800; color: ${SCORE_COLOR}; line-height: 1; }
-    .arrow { font-size: 40px; color: ${SCORE_COLOR}; }
-    .score-sub { color: #64748b; font-size: 14px; }
-    .summary { color: #94a3b8; font-size: 14px; margin: 4px 0 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th { color: #64748b; font-weight: 500; text-align: left; padding: 6px 10px;
-         border-bottom: 2px solid #1e293b; }
-    td { padding: 7px 10px; border-bottom: 1px solid #1e293b; }
-    .e { color: #f87171; font-weight: 600; }
-    .w { color: #facc15; font-weight: 600; }
-    .v { padding: 8px 12px; margin: 4px 0; border-radius: 6px;
-         background: #1e293b; font-size: 13px; }
-    .v.error { border-left: 3px solid #f87171; }
-    .v.warning { border-left: 3px solid #facc15; }
-    .badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
-             margin-right: 8px; vertical-align: middle; }
-    .error .badge { background: #450a0a; color: #fca5a5; }
-    .warning .badge { background: #422006; color: #fde68a; }
-    code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; color: #93c5fd; }
-    .filepath { color: #94a3b8; font-size: 12px; font-family: monospace; }
-    .chart-wrap { background: #1e293b; border-radius: 8px; padding: 16px;
-                  display: inline-block; margin: 4px 0; }
-    .proj { background: #1e293b; border-radius: 8px; padding: 20px; margin: 8px 0; }
-    .proj h2 { margin-top: 0; border: none; padding: 0; }
-    .rec { color: #94a3b8; font-size: 13px; margin: 8px 0 0;
-           border-left: 3px solid #334155; padding-left: 12px; }
-    footer { color: #1e293b; font-size: 11px; margin-top: 48px; text-align: center; }
+    header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 56px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+      width: 26px; height: 26px;
+      background: #1d1d1f;
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+    .scan-meta { font-size: 11px; color: #aeaeb2; text-align: right; line-height: 1.7; font-variant-numeric: tabular-nums; }
+
+    /* Score hero */
+    .score-hero { margin-bottom: 52px; }
+    .score-display { display: flex; align-items: baseline; gap: 4px; margin-bottom: 10px; }
+    .score-num {
+      font-size: 108px;
+      font-weight: 200;
+      color: ${SCORE_COLOR};
+      line-height: 1;
+      letter-spacing: -0.05em;
+      font-variant-numeric: tabular-nums;
+    }
+    .score-cap { font-size: 32px; font-weight: 200; color: #c7c7cc; letter-spacing: -0.02em; padding-bottom: 10px; }
+    .score-trend { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .trend-arrow { font-size: 20px; color: ${SCORE_COLOR}; line-height: 1; }
+    .trend-label { font-size: 13px; color: #6e6e73; }
+    .score-meta { font-size: 12px; color: #aeaeb2; }
+    .score-meta b { color: #6e6e73; font-weight: 500; }
+
+    /* Sections */
+    section { margin-bottom: 44px; }
+    .sec-head {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: #aeaeb2;
+      margin-bottom: 10px;
+    }
+    hr { border: none; border-top: 1px solid #e5e5ea; margin-bottom: 0; }
+
+    /* Module rows */
+    .mods { list-style: none; }
+    .mod-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid #f2f2f7;
+    }
+    .mod-row:last-child { border-bottom: none; }
+    .mod-name {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 12px;
+      color: #1d1d1f;
+    }
+    .mod-counts { display: flex; gap: 20px; }
+    .cnt { display: flex; align-items: center; gap: 5px; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .dot { width: 5px; height: 5px; border-radius: 50%; }
+    .dot.e { background: #ff3b30; }
+    .dot.w { background: #ff9500; }
+    .cnt-n { color: #aeaeb2; font-weight: 500; }
+    .cnt-n.e { color: #ff3b30; }
+    .cnt-n.w { color: #ff9500; }
+
+    /* Violation rows */
+    .viols { list-style: none; }
+    .viol-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f2f2f7;
+    }
+    .viol-row:last-child { border-bottom: none; }
+    .viol-bar { width: 2px; height: 34px; border-radius: 1px; flex-shrink: 0; }
+    .viol-bar.error { background: #ff3b30; }
+    .viol-bar.warning { background: #ff9500; }
+    .viol-info { flex: 1; min-width: 0; }
+    .viol-rule {
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 500;
+      color: #1d1d1f;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .viol-file {
+      font-family: 'SF Mono', 'Fira Code', ui-monospace, monospace;
+      font-size: 11px;
+      color: #aeaeb2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sev-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 3px 7px;
+      border-radius: 5px;
+      flex-shrink: 0;
+    }
+    .sev-tag.error { background: rgba(255,59,48,.08); color: #ff3b30; }
+    .sev-tag.warning { background: rgba(255,149,0,.08); color: #ff9500; }
+
+    /* All-clear state */
+    .all-clear { display: flex; align-items: center; gap: 8px; padding: 14px 0; font-size: 13px; color: #34c759; }
+    .clr-dot { width: 6px; height: 6px; border-radius: 50%; background: #34c759; flex-shrink: 0; }
+
+    /* Sparkline */
+    .chart-wrap { padding: 20px 0 8px; }
+    .chart-wrap svg { display: block; overflow: visible; }
+
+    /* Debt projection */
+    .proj-card { background: #f5f5f7; border-radius: 14px; padding: 22px 26px; }
+    .proj-title { font-size: 13px; font-weight: 600; color: #1d1d1f; margin-bottom: 6px; }
+    .proj-body { font-size: 13px; color: #6e6e73; margin-bottom: 10px; }
+    .proj-rec { font-size: 12px; color: #aeaeb2; border-left: 2px solid #d1d1d6; padding-left: 12px; }
+
+    footer {
+      font-size: 11px;
+      color: #d1d1d6;
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px solid #f2f2f7;
+    }
   </style>
 </head>
 <body>
-  <h1>🏥 AIS Architectural Health</h1>
-  <p class="meta">$(date '+%Y-%m-%d %H:%M') · Scanned $SCOPE_LABEL · $FILES_CHECKED file(s)</p>
+  <header>
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1.5L12.5 4.5V9.5L7 12.5L1.5 9.5V4.5L7 1.5Z" stroke="white" stroke-width="1.25" fill="none" stroke-linejoin="round"/>
+          <circle cx="7" cy="7" r="1.75" fill="white"/>
+        </svg>
+      </div>
+      <span class="brand-name">Architectural Immune System</span>
+    </div>
+    <div class="scan-meta">
+      $(date '+%Y-%m-%d %H:%M')<br>
+      $SCOPE_LABEL &middot; $FILES_CHECKED files
+    </div>
+  </header>
 
-  <div class="score-row">
-    <span class="score">$SCORE</span>
-    <span class="arrow">$ARROW</span>
-    <span class="score-sub">/ 100</span>
+  <div class="score-hero">
+    <div class="score-display">
+      <span class="score-num">$SCORE</span>
+      <span class="score-cap">/100</span>
+    </div>
+    <div class="score-trend">
+      <span class="trend-arrow">$ARROW</span>
+      <span class="trend-label">$TREND_TEXT</span>
+    </div>
+    <p class="score-meta">
+      <b>$TOTAL</b> violation(s) &nbsp;&middot;&nbsp; <b>$UNIQUE_ERROR_RULES</b> error rule(s) &nbsp;&middot;&nbsp; <b>$UNIQUE_WARNING_RULES</b> warning rule(s)
+    </p>
   </div>
-  <p class="summary">$TREND_TEXT · $TOTAL violation(s) · $UNIQUE_ERROR_RULES unique error rule(s) · $UNIQUE_WARNING_RULES unique warning rule(s)</p>
 
-  <h2>Module Breakdown</h2>
-  <table>
-    <tr><th>Module</th><th>Errors</th><th>Warnings</th></tr>
-    ${MODULE_TABLE_HTML}
-  </table>
+  <section>
+    <p class="sec-head">Modules</p>
+    <hr>
+    <ul class="mods">
+      ${MODULE_TABLE_HTML}
+    </ul>
+  </section>
 
-  <h2>Violations</h2>
-  ${VIOLATIONS_HTML}
+  <section>
+    <p class="sec-head">Violations</p>
+    <hr>
+    <ul class="viols">
+      ${VIOLATIONS_HTML}
+    </ul>
+  </section>
 
 $(if [ -n "$SVG_SPARKLINE" ]; then
-  echo "  <h2>Health Trend</h2>"
-  echo "  <div class=\"chart-wrap\">"
-  echo "    <svg width=\"300\" height=\"60\" style=\"display:block;overflow:visible\">"
-  echo "      $SVG_SPARKLINE"
-  echo "    </svg>"
-  echo "  </div>"
+  echo "  <section><p class=\"sec-head\">Health Trend</p><hr><div class=\"chart-wrap\"><svg width=\"300\" height=\"60\" style=\"display:block;overflow:visible\">$SVG_SPARKLINE</svg></div></section>"
 fi)
 
   ${PROJECTION_HTML}
 
-  <footer>Generated by AIS · Run /ais:scan for terminal view · /ais:baseline to re-initialize</footer>
+  <footer>Generated by AIS &nbsp;&middot;&nbsp; /ais:scan for terminal view &nbsp;&middot;&nbsp; /ais:baseline to re-initialize</footer>
 </body>
 </html>
 HTMLEOF

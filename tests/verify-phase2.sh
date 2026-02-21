@@ -46,7 +46,7 @@ input=$(jq -n \
 
 output=$(cd "$UNHEALTHY" && echo "$input" | bash "$ROOT/scripts/analyze-edit.sh")
 check_output "detects boundary violation on unhealthy route" "boundary-routes-no-direct-db" "$output"
-check_output "systemMessage contains AIS warning" "AIS" "$output"
+check_output "systemMessage contains ais warning" "ais:" "$output"
 
 # Build test input for healthy route (no violation)
 input=$(jq -n \
@@ -71,13 +71,13 @@ fi
 echo ""
 echo "load-baseline.sh:"
 output=$(cd "$UNHEALTHY" && echo '{}' | bash "$ROOT/scripts/load-baseline.sh")
-check_output "shows AIS Active when baseline exists" "AIS Active" "$output"
-check_output "shows invariant count" "invariants enforced" "$output"
+check_output "shows module count when baseline exists" "modules" "$output"
+check_output "shows invariant count" "invariants active" "$output"
 
 # No baseline → setup prompt
 tmp=$(mktemp -d)
 output=$(cd "$tmp" && echo '{}' | bash "$ROOT/scripts/load-baseline.sh")
-check_output "shows setup prompt when no baseline" "No baseline" "$output"
+check_output "shows setup prompt when no baseline" "no baseline" "$output"
 rm -rf "$tmp"
 
 # --- Timing tests ---

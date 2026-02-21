@@ -46,24 +46,23 @@ Include `--projection` only if projection data is available.
 Read the scan JSON from `/tmp/ais-health-scan.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
 
 ```
-📊 Health Score: <score>/100 <arrow>
+Health Score: <score>/100 <arrow>
 
 Files scanned: <N>
 Violations: <total> (<errors> errors, <warnings> warnings)
 
-## Module Breakdown
+Modules with violations:
 <list modules with violation counts — only show modules with violations>
 
-## Top Violations
+Top violations:
 <list up to 5, most severe first>
 
-## Trend
-<trend_text from generate-report.sh output>
+Trend: <trend_text from generate-report.sh output>
 <if projection: velocity + 30-day projection + recommendation>
 
-Full report opened: .ais/report.html
+Full report: .ais/report.html
 ```
 
-If there are no violations, say: `✅ Clean — no architectural violations detected. Health score: 100/100`
+If there are no violations, say: `No violations. Health score: 100/100`
 
 Clean up temp file: `rm -f /tmp/ais-health-scan.json`

@@ -1,0 +1,19 @@
+version: "1.0"
+invariants:
+  - id: boundary-views-no-direct-db
+    type: boundary
+    severity: error
+    description: "Django views must not import directly from the db layer"
+    source_glob: "src/routes/**"
+    forbidden_imports:
+      - "src.db.client"
+      - "src/db/client"
+      - "django.db.connection"
+  - id: pattern-no-raw-sql-python
+    type: pattern
+    severity: error
+    description: "No raw SQL strings outside the db layer"
+    forbidden_pattern: "(SELECT|INSERT|UPDATE|DELETE)[[:space:]]+(FROM|INTO|SET|WHERE)"
+    scope_glob: "src/**"
+    scope_glob_exclude:
+      - "src/db/**"

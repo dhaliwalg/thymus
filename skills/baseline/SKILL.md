@@ -144,4 +144,4 @@ language: [detected]
 **8. Confirm**
 
 Tell the user:
-> ✅ AIS baseline saved to `.ais/`. [N] invariants active. Run `/ais:health` for a full report, or `/ais:scan` to check for current violations.
+> AIS baseline saved to `.ais/`. [N] invariants active. Run `/ais:health` for a report or `/ais:scan` to check for violations.

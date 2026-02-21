@@ -32,7 +32,7 @@ VIOLATIONS
 N violation(s) found (X errors, Y warnings).
 ```
 
-If `stats.total` is 0, output: `✅ No violations found.`
+If `stats.total` is 0, output: `No violations found.`
 
 Append at the end: `Run /ais:health for the full report with trend data.`
 

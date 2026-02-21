@@ -241,22 +241,22 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Implement `/ais:learn` skill:
+- [x] Implement `/ais:learn` skill:
   - User teaches AIS a new invariant in natural language
   - Example: `/ais:learn all database queries must go through the repository layer`
   - AIS translates to a formal invariant in `invariants.yml`
   - Confirms with user before saving
   - Supports learning from corrections: "Claude, that import is wrong — auth should never touch the DB directly"
-- [ ] Implement CLAUDE.md auto-suggestions:
+- [x] Implement CLAUDE.md auto-suggestions:
   - When a violation pattern repeats ≥ 3 times, suggest adding a CLAUDE.md rule
   - Format: "Consider adding to CLAUDE.md: 'Never import from src/db/ directly in route handlers. Use src/repositories/ instead.'"
   - Track which CLAUDE.md rules reduce violations (effectiveness scoring)
-- [ ] Implement pattern auto-discovery:
+- [x] Implement pattern auto-discovery:
   - On `/ais:baseline --refresh`, re-scan and detect NEW patterns
   - Diff against existing baseline to show what changed
   - Propose new invariants based on newly detected patterns
   - User approves/rejects each proposal
-- [ ] Implement severity auto-calibration:
+- [x] Implement severity auto-calibration:
   - Track which violations get fixed vs. ignored
   - Violations that are always fixed → increase severity
   - Violations that are always ignored → decrease severity or suggest removal
@@ -278,30 +278,30 @@ architectural-immune-system/
 
 ### Tasks
 
-- [ ] Write comprehensive README.md:
+- [x] Write comprehensive README.md:
   - Quick start (< 2 minutes to first health report)
   - Configuration reference
   - Invariant rule syntax
   - FAQ and troubleshooting
-- [ ] Optimize for context window impact:
+- [x] Optimize for context window impact:
   - Skills use `disable-model-invocation: true` for action skills (scan, baseline, learn)
   - Reference skills (`user-invocable: false`) for background context
   - Total context footprint < 3K tokens at session start
-- [ ] Add language/framework auto-detection:
+- [x] Add language/framework auto-detection:
   - Detect from package.json, pyproject.toml, go.mod, etc.
   - Load appropriate default rules automatically
   - Support monorepos with per-package baselines
-- [ ] Error handling and edge cases:
+- [x] Error handling and edge cases:
   - Graceful degradation when `.ais/` missing
   - Handle binary files, symlinks, very large files
   - Timeout protection on all hooks (< 10s hard limit)
   - Clear error messages (not stack traces)
-- [ ] Testing:
+- [x] Testing:
   - Create test fixtures: healthy project, unhealthy project, mixed
   - Verify invariant detection accuracy ≥ 90%
   - Verify false positive rate < 5%
   - Test with real-world codebases: Next.js, Django, Go API, Rust CLI
-- [ ] Prepare for marketplace:
+- [x] Prepare for marketplace:
   - Publish to GitHub
   - Create `marketplace.json` entry
   - Write a changelog

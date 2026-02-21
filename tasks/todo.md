@@ -44,6 +44,23 @@
 - [x] Implement skills/health/SKILL.md (full Claude-narrated orchestration)
 - [x] End-to-end verification: verify-phase3.sh passes
 
-## Backlog
+## Phase 4 — Learning & Auto-Discovery
 
-See ROADMAP.md for Phase 4+ tasks.
+- [x] Implement scripts/add-invariant.sh (safe YAML append with validation)
+- [x] Implement skills/learn/SKILL.md (NL → YAML invariant translation + save)
+- [x] Add CLAUDE.md auto-suggestions to scripts/session-report.sh (≥3 repeats)
+- [x] Implement scripts/refresh-baseline.sh (detect new directories vs baseline)
+- [x] Implement scripts/calibrate-severity.sh (fix/ignore ratio → downgrade recs)
+- [x] End-to-end verification: verify-phase4.sh passes (16/16)
+
+## Phase 5 — Polish & Distribution
+
+- [x] Implement scripts/detect-framework.sh (language + framework auto-detection)
+- [x] Harden scripts/analyze-edit.sh (binary, symlink, large file guards)
+- [x] Add Python test fixture (tests/fixtures/python-project/)
+- [x] Write README.md (user-facing documentation)
+- [x] Write CHANGELOG.md (version history)
+- [x] Write LICENSE (MIT)
+- [x] End-to-end verification: verify-phase5.sh passes (14/14)
+
+## All phases complete — 50/50 tests passing
