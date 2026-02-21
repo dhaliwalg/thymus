@@ -1,4 +1,4 @@
-# AIS test fixture — db layer (permitted to have raw SQL)
+# Thymus test fixture — db layer (permitted to have raw SQL)
 import sqlite3
 
 def get_connection():

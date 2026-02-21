@@ -1,5 +1,5 @@
-# AIS Default Rules Library
-# Claude references this during /ais:baseline to supplement invariant-detector output.
+# Thymus Default Rules Library
+# Claude references this during /thymus:baseline to supplement invariant-detector output.
 # Rules are organized by category. Claude selects relevant sections based on detected framework.
 
 version: "1.0"

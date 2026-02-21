@@ -4,9 +4,9 @@
 
 **Goal:** Make every file edit trigger live invariant checking. Claude receives immediate warnings about architectural violations so it can self-correct before moving on.
 
-**Architecture:** Three hook scripts become real (currently Phase 0 stubs). `analyze-edit.sh` is the core — it fires on every Edit/Write, loads cached invariants, checks the edited file, and emits a `systemMessage` with any violations. `session-report.sh` aggregates the session at Stop. `load-baseline.sh` is enhanced to include violation history. All caching uses `/tmp/ais-cache-{PROJECT_HASH}/` for < 2s performance. A new `.ais/invariants.json` (written by `/ais:baseline`) gives hooks a jq-parseable invariant store.
+**Architecture:** Three hook scripts become real (currently Phase 0 stubs). `analyze-edit.sh` is the core — it fires on every Edit/Write, loads cached invariants, checks the edited file, and emits a `systemMessage` with any violations. `session-report.sh` aggregates the session at Stop. `load-baseline.sh` is enhanced to include violation history. All caching uses `/tmp/thymus-cache-{PROJECT_HASH}/` for < 2s performance. A new `.thymus/invariants.json` (written by `/thymus:baseline`) gives hooks a jq-parseable invariant store.
 
-**Tech Stack:** bash 4+, jq, grep, find. No external dependencies. Invariants read from `.ais/invariants.json`.
+**Tech Stack:** bash 4+, jq, grep, find. No external dependencies. Invariants read from `.thymus/invariants.json`.
 
 ---
 
@@ -22,10 +22,10 @@
 
 **Step 1: Update `skills/baseline/SKILL.md` Step 7 to also write `invariants.json`**
 
-In Step 7, after writing `.ais/invariants.yml`, add:
+In Step 7, after writing `.thymus/invariants.yml`, add:
 
 ```
-**`.ais/invariants.json`** — machine-readable copy for hooks (same invariants, JSON format):
+**`.thymus/invariants.json`** — machine-readable copy for hooks (same invariants, JSON format):
 ```json
 {
   "version": "1.0",
@@ -94,15 +94,15 @@ git commit -m "fix: phase 1 fixups — invariants.json output, source_glob array
 
 ### Task 1: Create test fixture for Phase 2
 
-**Goal:** Give `analyze-edit.sh` a `.ais/invariants.json` to read during tests, without requiring a full `/ais:baseline` run.
+**Goal:** Give `analyze-edit.sh` a `.thymus/invariants.json` to read during tests, without requiring a full `/thymus:baseline` run.
 
 **Files:**
-- Create: `tests/fixtures/unhealthy-project/.ais/invariants.json`
-- Create: `tests/fixtures/healthy-project/.ais/invariants.json`
+- Create: `tests/fixtures/unhealthy-project/.thymus/invariants.json`
+- Create: `tests/fixtures/healthy-project/.thymus/invariants.json`
 
 **Step 1: Create invariants.json for unhealthy project**
 
-This mirrors what `/ais:baseline` would produce for the test fixture. Create `tests/fixtures/unhealthy-project/.ais/invariants.json`:
+This mirrors what `/thymus:baseline` would produce for the test fixture. Create `tests/fixtures/unhealthy-project/.thymus/invariants.json`:
 
 ```json
 {
@@ -138,13 +138,13 @@ This mirrors what `/ais:baseline` would produce for the test fixture. Create `te
 
 **Step 2: Create invariants.json for healthy project**
 
-Create `tests/fixtures/healthy-project/.ais/invariants.json` — same content as above (healthy project should pass all these rules).
+Create `tests/fixtures/healthy-project/.thymus/invariants.json` — same content as above (healthy project should pass all these rules).
 
 **Step 3: Verify both files are valid JSON**
 
 ```bash
-jq . tests/fixtures/unhealthy-project/.ais/invariants.json > /dev/null && echo "PASS"
-jq . tests/fixtures/healthy-project/.ais/invariants.json > /dev/null && echo "PASS"
+jq . tests/fixtures/unhealthy-project/.thymus/invariants.json > /dev/null && echo "PASS"
+jq . tests/fixtures/healthy-project/.thymus/invariants.json > /dev/null && echo "PASS"
 ```
 
 Expected: two `PASS` lines.
@@ -153,7 +153,7 @@ Expected: two `PASS` lines.
 
 ```bash
 git add tests/fixtures/
-git commit -m "test: add .ais/invariants.json fixtures for Phase 2 hook testing"
+git commit -m "test: add .thymus/invariants.json fixtures for Phase 2 hook testing"
 ```
 
 ---
@@ -218,7 +218,7 @@ else
   exit 1
 fi
 
-# Test 3: missing .ais/ produces no output (silent exit)
+# Test 3: missing .thymus/ produces no output (silent exit)
 TMP_DIR=$(mktemp -d)
 input=$(jq -n \
   --arg tool "Edit" \
@@ -229,7 +229,7 @@ output=$(cd "$TMP_DIR" && echo "$input" | bash "$SCRIPT")
 rm -rf "$TMP_DIR"
 
 if [ -z "$output" ] || [ "$output" = "{}" ]; then
-  echo "PASS: silent exit when no .ais/ present"
+  echo "PASS: silent exit when no .thymus/ present"
 else
   echo "FAIL: unexpected output when no baseline"
   exit 1
@@ -252,12 +252,12 @@ Expected: Test 1 FAIL (script is still a stub), Tests 2-3 might PASS.
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS PostToolUse hook — analyze-edit.sh
+# Thymus PostToolUse hook — analyze-edit.sh
 # Fires on every Edit/Write. Checks the edited file against active invariants.
 # Output: JSON systemMessage if violations found, empty if clean.
 # NEVER exits with code 2 (no blocking).
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 input=$(cat)
@@ -269,16 +269,16 @@ echo "[$TIMESTAMP] analyze-edit.sh: $tool_name on ${file_path:-unknown}" >> "$DE
 # Nothing to check if no file path
 [ -z "$file_path" ] && exit 0
 
-# Look for .ais/invariants.json in the current working directory (project root)
-AIS_DIR="$PWD/.ais"
-INVARIANTS_FILE="$AIS_DIR/invariants.json"
+# Look for .thymus/invariants.json in the current working directory (project root)
+THYMUS_DIR="$PWD/.thymus"
+INVARIANTS_FILE="$THYMUS_DIR/invariants.json"
 
 # No baseline = no checking (silent, don't nag on every edit)
 [ -f "$INVARIANTS_FILE" ] || exit 0
 
 # Cache setup — project-specific temp dir
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 mkdir -p "$CACHE_DIR"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 [ -f "$SESSION_VIOLATIONS" ] || echo "[]" > "$SESSION_VIOLATIONS"
@@ -450,7 +450,7 @@ for obj in "${new_violation_objects[@]}"; do
 done
 
 # --- Format systemMessage ---
-msg_body="⚠️ AIS: ${#violation_lines[@]} violation(s) in $REL_PATH:\n"
+msg_body="⚠️ Thymus: ${#violation_lines[@]} violation(s) in $REL_PATH:\n"
 for line in "${violation_lines[@]}"; do
   msg_body+="  • $line\n"
 done
@@ -511,7 +511,7 @@ UNHEALTHY="$(realpath "$(dirname "$0")/fixtures/unhealthy-project")"
 echo "=== Testing session-report.sh ==="
 
 PROJECT_HASH=$(echo "$UNHEALTHY" | md5 -q 2>/dev/null || echo "$UNHEALTHY" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 SESSION_FILE="$CACHE_DIR/session-violations.json"
 
 # Setup: pre-populate session cache with 2 violations
@@ -555,13 +555,13 @@ Expected: FAIL (stub outputs nothing).
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS Stop hook — session-report.sh
+# Thymus Stop hook — session-report.sh
 # Fires at end of every Claude session. Reads session violations from cache,
 # writes a history snapshot, and outputs a compact summary systemMessage.
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
-AIS_DIR="$PWD/.ais"
+THYMUS_DIR="$PWD/.thymus"
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
@@ -569,16 +569,16 @@ session_id=$(echo "$input" | jq -r '.session_id // "unknown"' 2>/dev/null || ech
 echo "[$TIMESTAMP] session-report.sh: session $session_id ended" >> "$DEBUG_LOG"
 
 # No baseline = silent exit
-[ -f "$AIS_DIR/baseline.json" ] || exit 0
+[ -f "$THYMUS_DIR/baseline.json" ] || exit 0
 
 # Get session cache
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 
 # No violations file means no edits were analyzed
 if [ ! -f "$SESSION_VIOLATIONS" ]; then
-  jq -n '{"systemMessage": "📋 AIS: No architectural edits this session."}'
+  jq -n '{"systemMessage": "📋 Thymus: No architectural edits this session."}'
   exit 0
 fi
 
@@ -590,8 +590,8 @@ warnings=$(jq '[.[] | select(.severity == "warning")] | length' "$SESSION_VIOLAT
 echo "[$TIMESTAMP] session-report: $total total, $errors errors, $warnings warnings" >> "$DEBUG_LOG"
 
 # Write history snapshot
-mkdir -p "$AIS_DIR/history"
-SNAPSHOT_FILE="$AIS_DIR/history/${TIMESTAMP//:/-}.json"
+mkdir -p "$THYMUS_DIR/history"
+SNAPSHOT_FILE="$THYMUS_DIR/history/${TIMESTAMP//:/-}.json"
 jq -n \
   --arg ts "$TIMESTAMP" \
   --arg sid "$session_id" \
@@ -603,7 +603,7 @@ echo "[$TIMESTAMP] History snapshot written to $SNAPSHOT_FILE" >> "$DEBUG_LOG"
 
 # Build summary message
 if [ "$total" -eq 0 ]; then
-  summary="✅ AIS: Clean session — no violations detected."
+  summary="✅ Thymus: Clean session — no violations detected."
 else
   parts=()
   [ "$errors" -gt 0 ] && parts+=("$errors error(s)")
@@ -613,7 +613,7 @@ else
   # Get unique rules violated
   rules=$(jq -r '[.[].rule] | unique | join(", ")' "$SESSION_VIOLATIONS")
 
-  summary="⚠️ AIS Session: $total violation(s) — $violation_summary | Rules: $rules | Run /ais:scan for details"
+  summary="⚠️ Thymus Session: $total violation(s) — $violation_summary | Rules: $rules | Run /thymus:scan for details"
 fi
 
 jq -n --arg msg "$summary" '{"systemMessage": $msg}'
@@ -659,15 +659,15 @@ Replace the current "baseline exists" branch (lines 26–39) with an enhanced ve
 # Baseline exists — compute compact summary
 MODULE_COUNT=$(jq '.modules | length' "$BASELINE" 2>/dev/null || echo "0")
 INVARIANT_COUNT=0
-if [ -f "$AIS_DIR/invariants.json" ]; then
-  INVARIANT_COUNT=$(jq '.invariants | length' "$AIS_DIR/invariants.json" 2>/dev/null || echo "0")
-elif [ -f "$AIS_DIR/invariants.yml" ]; then
-  INVARIANT_COUNT=$(grep -c "^  - id:" "$AIS_DIR/invariants.yml" 2>/dev/null || echo "0")
+if [ -f "$THYMUS_DIR/invariants.json" ]; then
+  INVARIANT_COUNT=$(jq '.invariants | length' "$THYMUS_DIR/invariants.json" 2>/dev/null || echo "0")
+elif [ -f "$THYMUS_DIR/invariants.yml" ]; then
+  INVARIANT_COUNT=$(grep -c "^  - id:" "$THYMUS_DIR/invariants.yml" 2>/dev/null || echo "0")
 fi
 
 # Count recent violations from last history snapshot
 RECENT_VIOLATIONS=0
-HISTORY_DIR="$AIS_DIR/history"
+HISTORY_DIR="$THYMUS_DIR/history"
 if [ -d "$HISTORY_DIR" ]; then
   LAST_SNAPSHOT=$(find "$HISTORY_DIR" -name "*.json" -type f | sort | tail -1)
   if [ -n "$LAST_SNAPSHOT" ]; then
@@ -679,16 +679,16 @@ echo "[$TIMESTAMP] Baseline: $MODULE_COUNT modules, $INVARIANT_COUNT invariants,
 
 # Build compact message (< 500 tokens)
 if [ "$RECENT_VIOLATIONS" -gt 0 ]; then
-  STATUS="⚠️ AIS Active"
+  STATUS="⚠️ Thymus Active"
   VIOLATION_NOTE=" | $RECENT_VIOLATIONS violation(s) last session"
 else
-  STATUS="✅ AIS Active"
+  STATUS="✅ Thymus Active"
   VIOLATION_NOTE=""
 fi
 
 cat <<EOF
 {
-  "systemMessage": "$STATUS | $MODULE_COUNT modules | $INVARIANT_COUNT invariants enforced$VIOLATION_NOTE | Run /ais:health for full report"
+  "systemMessage": "$STATUS | $MODULE_COUNT modules | $INVARIANT_COUNT invariants enforced$VIOLATION_NOTE | Run /thymus:health for full report"
 }
 EOF
 ```
@@ -696,7 +696,7 @@ EOF
 **Step 3: Verify load-baseline.sh handles the invariants.json path**
 
 ```bash
-# Quick smoke test — no .ais/ should produce setup prompt
+# Quick smoke test — no .thymus/ should produce setup prompt
 tmp=$(mktemp -d)
 output=$(cd "$tmp" && bash /path/to/scripts/load-baseline.sh)
 echo "$output" | jq -r '.systemMessage' | grep -q "No baseline" && echo "PASS: setup prompt shown"
@@ -767,7 +767,7 @@ input=$(jq -n \
 
 output=$(cd "$UNHEALTHY" && echo "$input" | bash "$ROOT/scripts/analyze-edit.sh")
 check_output "detects boundary violation on unhealthy route" "boundary-routes-no-direct-db" "$output"
-check_output "systemMessage contains ⚠️ AIS" "AIS" "$output"
+check_output "systemMessage contains ⚠️ Thymus" "Thymus" "$output"
 
 # Build test input for healthy route (no violation)
 input=$(jq -n \
@@ -788,7 +788,7 @@ bash "$ROOT/tests/verify-session-report.sh" > /dev/null 2>&1 && \
 echo ""
 echo "load-baseline.sh:"
 output=$(cd "$UNHEALTHY" && echo '{}' | bash "$ROOT/scripts/load-baseline.sh")
-check_output "shows AIS Active when baseline exists" "AIS Active" "$output"
+check_output "shows Thymus Active when baseline exists" "Thymus Active" "$output"
 check_output "shows invariant count" "invariants enforced" "$output"
 
 # --- Timing tests ---
@@ -832,7 +832,7 @@ Add Phase 2 section:
 ## Phase 2 — Real-Time Enforcement
 
 - [x] Apply Phase 1 fixes (invariants.json output, source_glob arrays, || true guards)
-- [x] Add .ais/invariants.json test fixtures
+- [x] Add .thymus/invariants.json test fixtures
 - [x] Implement scripts/analyze-edit.sh (boundary + pattern + convention checking)
 - [x] Implement scripts/session-report.sh (session aggregation + history snapshots)
 - [x] Enhance scripts/load-baseline.sh (reads invariants.json, shows recent violation count)
@@ -855,11 +855,11 @@ git commit -m "feat: Phase 2 complete — real-time enforcement with analyze-edi
 - [ ] `bash tests/verify-phase2.sh` → all checks pass
 - [ ] `analyze-edit.sh` on unhealthy route → `systemMessage` contains `boundary-routes-no-direct-db`
 - [ ] `analyze-edit.sh` on healthy route → empty output
-- [ ] `analyze-edit.sh` with no `.ais/` → empty output (silent)
+- [ ] `analyze-edit.sh` with no `.thymus/` → empty output (silent)
 - [ ] `session-report.sh` with 2 seeded violations → correct error/warning counts in message
 - [ ] `load-baseline.sh` with baseline present → `systemMessage` includes invariant count
 - [ ] `analyze-edit.sh` timing < 2 seconds (p95)
-- [ ] `.ais/history/` snapshot written after session-report runs
+- [ ] `.thymus/history/` snapshot written after session-report runs
 - [ ] `tasks/todo.md` Phase 2 items all checked
 
 ---
@@ -868,11 +868,11 @@ git commit -m "feat: Phase 2 complete — real-time enforcement with analyze-edi
 
 ### Why invariants.json (not YAML)
 
-The hook fires on every edit. Parsing YAML in bash requires either Python (banned) or fragile awk. `jq` can parse JSON in milliseconds. The baseline skill writes both `.ais/invariants.yml` (human-editable) and `.ais/invariants.json` (hook-readable). Users edit the YAML; `/ais:baseline --refresh` regenerates the JSON.
+The hook fires on every edit. Parsing YAML in bash requires either Python (banned) or fragile awk. `jq` can parse JSON in milliseconds. The baseline skill writes both `.thymus/invariants.yml` (human-editable) and `.thymus/invariants.json` (hook-readable). Users edit the YAML; `/thymus:baseline --refresh` regenerates the JSON.
 
 ### Glob matching strategy
 
-The `glob_to_regex()` function converts AIS globs to POSIX ERE for `grep -E`. Key transforms:
+The `glob_to_regex()` function converts Thymus globs to POSIX ERE for `grep -E`. Key transforms:
 - Escape `.` → `\.`
 - Replace `**` → `.*` (cross-directory)
 - Replace `*` → `[^/]*` (single-segment)
@@ -882,7 +882,7 @@ This handles all patterns in `default-rules.yml` correctly.
 
 ### Session state via /tmp
 
-The session violations file `/tmp/ais-cache-{HASH}/session-violations.json` is created by the first analyze-edit.sh call and consumed + deleted by session-report.sh. The hash is derived from `$PWD` so multiple projects don't collide.
+The session violations file `/tmp/thymus-cache-{HASH}/session-violations.json` is created by the first analyze-edit.sh call and consumed + deleted by session-report.sh. The hash is derived from `$PWD` so multiple projects don't collide.
 
 ### md5 portability
 

@@ -8,7 +8,7 @@
 
 Thymus v1.0 ships with:
 - **3 hooks**: PostToolUse (`analyze-edit.sh`), Stop (`session-report.sh`), SessionStart (`load-baseline.sh`)
-- **5 skills**: `/ais:health`, `/ais:scan`, `/ais:baseline`, `/ais:learn`, `/ais:configure`
+- **5 skills**: `/thymus:health`, `/thymus:scan`, `/thymus:baseline`, `/thymus:learn`, `/thymus:configure`
 - **2 agents**: `invariant-detector`, `debt-projector`
 - **4 enforced invariant types**: `boundary`, `pattern`, `convention`, `dependency`
 - Health score formula, HTML report with SVG sparkline, debt projections
@@ -35,11 +35,11 @@ thymus/
 ├── .claude-plugin/
 │   └── plugin.json                  # Plugin manifest (name, version, author)
 ├── skills/
-│   ├── health/SKILL.md              # /ais:health — Generate health report
-│   ├── learn/SKILL.md               # /ais:learn — Teach AIS a new invariant
-│   ├── scan/SKILL.md                # /ais:scan — Full codebase scan
-│   ├── baseline/SKILL.md            # /ais:baseline — Initialize/reset baseline
-│   └── configure/SKILL.md           # /ais:configure — Edit rules & thresholds
+│   ├── health/SKILL.md              # /thymus:health — Generate health report
+│   ├── learn/SKILL.md               # /thymus:learn — Teach Thymus a new invariant
+│   ├── scan/SKILL.md                # /thymus:scan — Full codebase scan
+│   ├── baseline/SKILL.md            # /thymus:baseline — Initialize/reset baseline
+│   └── configure/SKILL.md           # /thymus:configure — Edit rules & thresholds
 ├── agents/
 │   ├── invariant-detector.md        # Discovers implicit patterns in codebase
 │   └── debt-projector.md            # Projects tech debt trajectory from trends
@@ -68,12 +68,12 @@ thymus/
 
 - [x] Create plugin directory structure matching the tree above
 - [x] Write `.claude-plugin/plugin.json` manifest with correct schema
-- [x] Create minimal `skills/health/SKILL.md` that returns "AIS not yet initialized"
+- [x] Create minimal `skills/health/SKILL.md` that returns "Thymus not yet initialized"
 - [x] Create `hooks/hooks.json` with stubbed PostToolUse, Stop, and SessionStart hooks
-- [x] Write `scripts/load-baseline.sh` that checks for `.ais/` directory in project root
+- [x] Write `scripts/load-baseline.sh` that checks for `.thymus/` directory in project root
 - [x] Verify plugin loads with `claude --plugin-dir ./architectural-immune-system`
-- [x] Verify `/ais:health` appears in skill list and is invocable
-- [x] Verify hooks fire on Edit/Write events (log to `/tmp/ais-debug.log`)
+- [x] Verify `/thymus:health` appears in skill list and is invocable
+- [x] Verify hooks fire on Edit/Write events (log to `/tmp/thymus-debug.log`)
 
 ### Definition of Done
 - Plugin installs without errors
@@ -87,20 +87,20 @@ thymus/
 
 ## Phase 1 — Baseline Engine ✓
 
-**Goal:** AIS can scan a codebase and produce a structural baseline — the "healthy" fingerprint.
+**Goal:** Thymus can scan a codebase and produce a structural baseline — the "healthy" fingerprint.
 
 ### Tasks
 
-- [x] Design the `.ais/` directory structure:
+- [x] Design the `.thymus/` directory structure:
   ```
-  .ais/
+  .thymus/
   ├── baseline.json        # Structural fingerprint
   ├── invariants.yml       # User-defined + auto-discovered rules
   ├── history/             # Historical health snapshots
   │   └── YYYY-MM-DD.json
   └── config.yml           # Thresholds, ignored paths, language settings
   ```
-- [x] Implement `/ais:baseline` skill:
+- [x] Implement `/thymus:baseline` skill:
   - Scans project structure (directories, file types, module boundaries)
   - Maps dependency graph (imports/requires/use statements)
   - Identifies repeating patterns (where auth lives, where DB access happens, test locations)
@@ -136,10 +136,10 @@ thymus/
   - `pattern` — This code pattern must/must-not exist in this scope
 
 ### Definition of Done
-- `/ais:baseline` produces a valid `baseline.json` for a real project
+- `/thymus:baseline` produces a valid `baseline.json` for a real project
 - Invariant detector proposes ≥ 5 meaningful invariants for a Next.js project
 - Baseline captures modules, dependencies, patterns, conventions
-- `.ais/` directory is `.gitignore`-safe (user chooses to commit or not)
+- `.thymus/` directory is `.gitignore`-safe (user chooses to commit or not)
 - Process completes in < 60 seconds for a 50K LOC codebase
 
 ### Estimated Complexity: Ambitious
@@ -154,7 +154,7 @@ thymus/
 
 - [x] Implement `scripts/analyze-edit.sh` (PostToolUse hook):
   - Receives tool input JSON via stdin (file_path from Edit/Write)
-  - Loads `baseline.json` and `invariants.yml` from `.ais/`
+  - Loads `baseline.json` and `invariants.yml` from `.thymus/`
   - Checks the edited file against relevant invariants:
     - New import added? Check boundary rules
     - New file created? Check convention/structure rules
@@ -182,15 +182,15 @@ thymus/
   - Aggregates all violations from the session
   - Computes a "session health score" (violations weighted by severity)
   - Outputs summary: "This session introduced 2 boundary violations and 1 convention warning"
-  - Writes snapshot to `.ais/history/`
+  - Writes snapshot to `.thymus/history/`
 - [x] Implement SessionStart hook in `scripts/load-baseline.sh`:
-  - Checks if `.ais/baseline.json` exists
+  - Checks if `.thymus/baseline.json` exists
   - If yes: injects a compact summary (< 500 tokens) into Claude's context via `systemMessage`
-  - If no: suggests running `/ais:baseline`
+  - If no: suggests running `/thymus:baseline`
   - Loads recent violation history for awareness
 - [x] Performance optimization:
   - Hook must complete in < 2 seconds to avoid disrupting flow
-  - Cache parsed invariants in `/tmp/ais-cache-$PROJECT_HASH/`
+  - Cache parsed invariants in `/tmp/thymus-cache-$PROJECT_HASH/`
   - Only check invariants relevant to the edited file (filter by glob)
   - Use `find` and `grep` over AST parsing for speed
 
@@ -211,23 +211,23 @@ thymus/
 
 ### Tasks
 
-- [x] Implement `/ais:health` skill (full version):
+- [x] Implement `/thymus:health` skill (full version):
   - Runs full scan against current baseline
   - Computes health scores per module and overall
   - Generates an interactive HTML report (opens in browser):
     - **Overview**: Overall health score, trend arrow, violation count
     - **Module Map**: Visual dependency graph with violation hotspots
-    - **Drift Timeline**: Health score over time (from `.ais/history/`)
+    - **Drift Timeline**: Health score over time (from `.thymus/history/`)
     - **Top Violations**: Ranked by severity × frequency
     - **Tech Debt Projection**: "At current rate, X new violations per week"
   - Uses `scripts/generate-report.sh` with the HTML template
-- [x] Implement `/ais:scan` skill:
-  - Lighter than `/ais:health` — runs in terminal, no HTML
+- [x] Implement `/thymus:scan` skill:
+  - Lighter than `/thymus:health` — runs in terminal, no HTML
   - Outputs a structured table of current violations
   - Flags new violations since last scan
-  - Supports `$ARGUMENTS` for scoping: `/ais:scan src/auth`
+  - Supports `$ARGUMENTS` for scoping: `/thymus:scan src/auth`
 - [x] Implement `debt-projector` agent:
-  - Analyzes `.ais/history/` snapshots
+  - Analyzes `.thymus/history/` snapshots
   - Computes velocity of architectural drift
   - Projects: "If current patterns continue, you'll have X boundary violations in 30 days"
   - Identifies which modules are degrading fastest
@@ -238,10 +238,10 @@ thymus/
   - Perfect for PR review workflows
 
 ### Definition of Done
-- `/ais:health` generates a professional HTML report
+- `/thymus:health` generates a professional HTML report
 - Report shows meaningful trends across ≥ 5 historical snapshots
 - Debt projector produces actionable recommendations
-- `/ais:scan src/module` scopes correctly to subdirectory
+- `/thymus:scan src/module` scopes correctly to subdirectory
 - Reports render correctly in Chrome, Safari, Firefox
 
 ### Estimated Complexity: Medium
@@ -250,14 +250,14 @@ thymus/
 
 ## Phase 4 — Learning & Auto-Discovery ✓
 
-**Goal:** AIS gets smarter over time. It learns from corrections, discovers new patterns, and auto-tunes.
+**Goal:** Thymus gets smarter over time. It learns from corrections, discovers new patterns, and auto-tunes.
 
 ### Tasks
 
-- [x] Implement `/ais:learn` skill:
-  - User teaches AIS a new invariant in natural language
-  - Example: `/ais:learn all database queries must go through the repository layer`
-  - AIS translates to a formal invariant in `invariants.yml`
+- [x] Implement `/thymus:learn` skill:
+  - User teaches Thymus a new invariant in natural language
+  - Example: `/thymus:learn all database queries must go through the repository layer`
+  - Thymus translates to a formal invariant in `invariants.yml`
   - Confirms with user before saving
   - Supports learning from corrections: "Claude, that import is wrong — auth should never touch the DB directly"
 - [x] Implement CLAUDE.md auto-suggestions:
@@ -265,7 +265,7 @@ thymus/
   - Format: "Consider adding to CLAUDE.md: 'Never import from src/db/ directly in route handlers. Use src/repositories/ instead.'"
   - Track which CLAUDE.md rules reduce violations (effectiveness scoring)
 - [x] Implement pattern auto-discovery:
-  - On `/ais:baseline --refresh`, re-scan and detect NEW patterns
+  - On `/thymus:baseline --refresh`, re-scan and detect NEW patterns
   - Diff against existing baseline to show what changed
   - Propose new invariants based on newly detected patterns
   - User approves/rejects each proposal
@@ -276,7 +276,7 @@ thymus/
   - Prevents alert fatigue
 
 ### Definition of Done
-- `/ais:learn` correctly translates natural language to YAML invariants
+- `/thymus:learn` correctly translates natural language to YAML invariants
 - Auto-discovery finds ≥ 3 new patterns on a mature codebase
 - Severity calibration adjusts after 10+ data points
 - CLAUDE.md suggestions are actionable and specific
@@ -305,7 +305,7 @@ thymus/
   - Load appropriate default rules automatically
   - Support monorepos with per-package baselines
 - [x] Error handling and edge cases:
-  - Graceful degradation when `.ais/` missing
+  - Graceful degradation when `.thymus/` missing
   - Handle binary files, symlinks, very large files
   - Timeout protection on all hooks (< 10s hard limit)
   - Clear error messages (not stack traces)
@@ -336,7 +336,7 @@ thymus/
 - **Broader `convention` matching**: Beyond test colocation — naming conventions, file placement rules
 - **Plugin marketplace submission**: Publish to the Claude Code plugin marketplace
 - **CI/CD integration**: Run Thymus in GitHub Actions, fail PRs that introduce boundary violations
-- **Team invariants**: Shared `.ais/` committed to repo, team-wide enforcement
+- **Team invariants**: Shared `.thymus/` committed to repo, team-wide enforcement
 - **Visualization MCP**: Dependency graph as interactive web UI via MCP server
 - **Cross-repo rules**: Organization-wide architectural standards
 - **Migration planner**: Prioritized refactoring plans with estimated effort
@@ -351,8 +351,8 @@ thymus/
 | False positives erode trust | High | High | Start conservative, let users calibrate, severity auto-tune |
 | Context bloat from skill descriptions | Medium | Medium | Use `disable-model-invocation` on action skills, keep descriptions lean |
 | Different languages need different heuristics | High | Medium | Start with TS/Python, design for extensibility from day 1 |
-| Users don't run `/ais:baseline` | Medium | Low | SessionStart hook prompts on first use, provide 1-command setup |
-| Baseline gets stale | Medium | Medium | `/ais:baseline --refresh` diffing, auto-suggest refresh after N sessions |
+| Users don't run `/thymus:baseline` | Medium | Low | SessionStart hook prompts on first use, provide 1-command setup |
+| Baseline gets stale | Medium | Medium | `/thymus:baseline --refresh` diffing, auto-suggest refresh after N sessions |
 
 ---
 

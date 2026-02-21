@@ -97,7 +97,7 @@ UNHEALTHY="$ROOT/tests/fixtures/unhealthy-project"
 
 # Test: binary file is silently skipped (no output, exit 0)
 TMPDIR_BIN=$(mktemp -d)
-cp -r "$UNHEALTHY/.ais" "$TMPDIR_BIN/"
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_BIN/"
 # Create a binary file (PNG magic bytes)
 printf '\x89PNG\r\n\x1a\n' > "$TMPDIR_BIN/image.png"
 BIN_OUT=$(cd "$TMPDIR_BIN" && printf '{"tool_name":"Write","tool_input":{"file_path":"%s/image.png"},"tool_response":{"success":true},"session_id":"test"}' "$TMPDIR_BIN" \
@@ -114,7 +114,7 @@ rm -rf "$TMPDIR_BIN"
 
 # Test: very large file is silently skipped
 TMPDIR_LARGE=$(mktemp -d)
-cp -r "$UNHEALTHY/.ais" "$TMPDIR_LARGE/"
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_LARGE/"
 # Create a large file (600KB of text with forbidden import)
 python3 -c "
 import os

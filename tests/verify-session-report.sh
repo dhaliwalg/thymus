@@ -7,7 +7,7 @@ UNHEALTHY="$(realpath "$(dirname "$0")/fixtures/unhealthy-project")"
 echo "=== Testing session-report.sh ==="
 
 PROJECT_HASH=$(echo "$UNHEALTHY" | md5 -q 2>/dev/null || echo "$UNHEALTHY" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 SESSION_FILE="$CACHE_DIR/session-violations.json"
 
 # Setup: pre-populate session cache with 2 violations

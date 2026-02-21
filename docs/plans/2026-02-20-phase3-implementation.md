@@ -4,7 +4,7 @@
 
 **Goal:** Add a full-project batch scanner, interactive HTML health report, debt projection agent, and diff-aware scanning — plus fix two Phase 2 carryover issues (YAML format inconsistency, broken extglob negation).
 
-**Architecture:** Standalone `scan-project.sh` batch scanner (new, independent from `analyze-edit.sh`) + `generate-report.sh` HTML generator. Both scripts inline a `load_invariants()` helper that converts `invariants.yml` → temp JSON using Python3, cached by mtime. The `/ais:health` skill orchestrates: scan → debt-projector agent → report generation → Claude narration.
+**Architecture:** Standalone `scan-project.sh` batch scanner (new, independent from `analyze-edit.sh`) + `generate-report.sh` HTML generator. Both scripts inline a `load_invariants()` helper that converts `invariants.yml` → temp JSON using Python3, cached by mtime. The `/thymus:health` skill orchestrates: scan → debt-projector agent → report generation → Claude narration.
 
 **Tech Stack:** bash 4+, jq, python3 (stdlib only — no PyYAML), standard Unix tools (find, grep, awk, sed, date)
 
@@ -17,21 +17,21 @@
 Both fixtures currently have `invariants.json` (Phase 2 used JSON for easy jq parsing). This task converts them to YAML and replaces the broken extglob pattern with `scope_glob_exclude`.
 
 **Files:**
-- Delete: `tests/fixtures/unhealthy-project/.ais/invariants.json`
-- Create: `tests/fixtures/unhealthy-project/.ais/invariants.yml`
-- Delete: `tests/fixtures/healthy-project/.ais/invariants.json`
-- Create: `tests/fixtures/healthy-project/.ais/invariants.yml`
+- Delete: `tests/fixtures/unhealthy-project/.thymus/invariants.json`
+- Create: `tests/fixtures/unhealthy-project/.thymus/invariants.yml`
+- Delete: `tests/fixtures/healthy-project/.thymus/invariants.json`
+- Create: `tests/fixtures/healthy-project/.thymus/invariants.yml`
 
 **Step 1: Delete both .json files**
 
 ```bash
-rm tests/fixtures/unhealthy-project/.ais/invariants.json
-rm tests/fixtures/healthy-project/.ais/invariants.json
+rm tests/fixtures/unhealthy-project/.thymus/invariants.json
+rm tests/fixtures/healthy-project/.thymus/invariants.json
 ```
 
 **Step 2: Create unhealthy fixture invariants.yml**
 
-Write `tests/fixtures/unhealthy-project/.ais/invariants.yml`:
+Write `tests/fixtures/unhealthy-project/.thymus/invariants.yml`:
 
 ```yaml
 version: "1.0"
@@ -66,7 +66,7 @@ invariants:
 
 **Step 3: Create healthy fixture invariants.yml** (identical schema, same rules)
 
-Write `tests/fixtures/healthy-project/.ais/invariants.yml` with the same content as above.
+Write `tests/fixtures/healthy-project/.thymus/invariants.yml` with the same content as above.
 
 **Step 4: Verify the files parse cleanly**
 
@@ -99,8 +99,8 @@ def parse(path):
     return invariants
 
 for path in [
-    'tests/fixtures/unhealthy-project/.ais/invariants.yml',
-    'tests/fixtures/healthy-project/.ais/invariants.yml',
+    'tests/fixtures/unhealthy-project/.thymus/invariants.yml',
+    'tests/fixtures/healthy-project/.thymus/invariants.yml',
 ]:
     invs = parse(path)
     print(f'{path}: {len(invs)} invariants OK')
@@ -143,12 +143,12 @@ Write the full `scripts/analyze-edit.sh`:
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS PostToolUse hook — analyze-edit.sh
+# Thymus PostToolUse hook — analyze-edit.sh
 # Fires on every Edit/Write. Checks the edited file against active invariants.
 # Output: JSON systemMessage if violations found, empty if clean.
 # NEVER exits with code 2 (no blocking).
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 input=$(cat)
@@ -159,13 +159,13 @@ echo "[$TIMESTAMP] analyze-edit.sh: $tool_name on ${file_path:-unknown}" >> "$DE
 
 [ -z "$file_path" ] && exit 0
 
-AIS_DIR="$PWD/.ais"
-INVARIANTS_YML="$AIS_DIR/invariants.yml"
+THYMUS_DIR="$PWD/.thymus"
+INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
 [ -f "$INVARIANTS_YML" ] || exit 0
 
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 mkdir -p "$CACHE_DIR"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 [ -f "$SESSION_VIOLATIONS" ] || echo "[]" > "$SESSION_VIOLATIONS"
@@ -175,7 +175,7 @@ SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 # Writes parsed JSON to cache; reuses cache if newer than source.
 load_invariants() {
   local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "AIS: invariants.yml not found" >&2; return 1; }
+  [ -f "$yml" ] || { echo "Thymus: invariants.yml not found" >&2; return 1; }
   if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
     echo "$cache"; return 0
   fi
@@ -220,7 +220,7 @@ def parse(src, dst):
 parse(sys.argv[1], sys.argv[2])
 PYEOF
   if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "AIS: Failed to parse invariants.yml" >&2; return 1
+    echo "Thymus: Failed to parse invariants.yml" >&2; return 1
   fi
   echo "$cache"
 }
@@ -374,7 +374,7 @@ for obj in "${new_violation_objects[@]}"; do
   echo "$updated" > "$SESSION_VIOLATIONS"
 done
 
-msg_body="⚠️ AIS: ${#violation_lines[@]} violation(s) in $REL_PATH:\n"
+msg_body="⚠️ Thymus: ${#violation_lines[@]} violation(s) in $REL_PATH:\n"
 for line in "${violation_lines[@]}"; do
   msg_body+="  • $line\n"
 done
@@ -418,10 +418,10 @@ Find this block in `scripts/load-baseline.sh` (lines 28-32):
 
 ```bash
 INVARIANT_COUNT=0
-if [ -f "$AIS_DIR/invariants.json" ]; then
-  INVARIANT_COUNT=$(jq '.invariants | length' "$AIS_DIR/invariants.json" 2>/dev/null || echo "0")
-elif [ -f "$AIS_DIR/invariants.yml" ]; then
-  INVARIANT_COUNT=$(grep -c "^  - id:" "$AIS_DIR/invariants.yml" 2>/dev/null || echo "0")
+if [ -f "$THYMUS_DIR/invariants.json" ]; then
+  INVARIANT_COUNT=$(jq '.invariants | length' "$THYMUS_DIR/invariants.json" 2>/dev/null || echo "0")
+elif [ -f "$THYMUS_DIR/invariants.yml" ]; then
+  INVARIANT_COUNT=$(grep -c "^  - id:" "$THYMUS_DIR/invariants.yml" 2>/dev/null || echo "0")
 fi
 ```
 
@@ -429,8 +429,8 @@ Replace with:
 
 ```bash
 INVARIANT_COUNT=0
-if [ -f "$AIS_DIR/invariants.yml" ]; then
-  INVARIANT_COUNT=$(grep -c "^  - id:" "$AIS_DIR/invariants.yml" 2>/dev/null || echo "0")
+if [ -f "$THYMUS_DIR/invariants.yml" ]; then
+  INVARIANT_COUNT=$(grep -c "^  - id:" "$THYMUS_DIR/invariants.yml" 2>/dev/null || echo "0")
 fi
 ```
 
@@ -442,7 +442,7 @@ fi
 cd tests/fixtures/unhealthy-project && echo '{}' | bash ../../../scripts/load-baseline.sh
 ```
 
-Expected output: JSON with `systemMessage` showing `AIS Active | ... | 3 invariants enforced`.
+Expected output: JSON with `systemMessage` showing `Thymus Active | ... | 3 invariants enforced`.
 
 **Step 3: Commit**
 
@@ -646,16 +646,16 @@ Expected: all FAIL (scan-project.sh doesn't exist yet). This confirms TDD red ph
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS scan-project.sh — batch invariant checker
+# Thymus scan-project.sh — batch invariant checker
 # Usage: bash scan-project.sh [scope_path] [--diff]
 # Output: JSON { violations: [...], stats: {...}, scope: "..." }
 # scope_path: optional subdirectory to limit scan (e.g. "src/auth")
 # --diff: limit scan to files changed since git HEAD
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
-AIS_DIR="$PWD/.ais"
-INVARIANTS_YML="$AIS_DIR/invariants.yml"
+THYMUS_DIR="$PWD/.thymus"
+INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
 SCOPE=""
 DIFF_MODE=false
@@ -669,18 +669,18 @@ done
 echo "[$TIMESTAMP] scan-project.sh: scope=${SCOPE:-full} diff=$DIFF_MODE" >> "$DEBUG_LOG"
 
 if [ ! -f "$INVARIANTS_YML" ]; then
-  echo '{"error":"No invariants.yml found. Run /ais:baseline first.","violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
+  echo '{"error":"No invariants.yml found. Run /thymus:baseline first.","violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
   exit 0
 fi
 
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 mkdir -p "$CACHE_DIR"
 
 # --- YAML → JSON (cached by mtime) ---
 load_invariants() {
   local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "AIS: invariants.yml not found" >&2; return 1; }
+  [ -f "$yml" ] || { echo "Thymus: invariants.yml not found" >&2; return 1; }
   if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
     echo "$cache"; return 0
   fi
@@ -725,7 +725,7 @@ def parse(src, dst):
 parse(sys.argv[1], sys.argv[2])
 PYEOF
   if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "AIS: Failed to parse invariants.yml" >&2; return 1
+    echo "Thymus: Failed to parse invariants.yml" >&2; return 1
   fi
   echo "$cache"
 }
@@ -792,7 +792,7 @@ import_is_forbidden() {
 }
 
 # --- Build file list ---
-IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".ais")
+IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
 IGNORED_ARGS=()
 for p in "${IGNORED_PATHS[@]}"; do
   IGNORED_ARGS+=(-not -path "*/$p/*" -not -name "$p")
@@ -965,7 +965,7 @@ disable-model-invocation: true
 argument-hint: "[path/to/module] [--diff]"
 ---
 
-# AIS Scan
+# Thymus Scan
 
 Run the full-project invariant scanner:
 
@@ -991,7 +991,7 @@ N violation(s) found (X errors, Y warnings).
 
 If `stats.total` is 0, output: `✅ No violations found.`
 
-Append at the end: `Run /ais:health for the full report with trend data.`
+Append at the end: `Run /thymus:health for the full report with trend data.`
 
 **Scoping:** If `$ARGUMENTS` contains a path (e.g. `src/auth`), the scan is limited to that directory.
 
@@ -1002,7 +1002,7 @@ Append at the end: `Run /ais:health for the full report with trend data.`
 
 ```bash
 git add skills/scan/SKILL.md
-git commit -m "feat: implement /ais:scan skill with scan-project.sh"
+git commit -m "feat: implement /thymus:scan skill with scan-project.sh"
 ```
 
 ---
@@ -1021,7 +1021,7 @@ You are a specialized agent that analyzes architectural health history to projec
 
 ## Your role
 
-Given a list of `.ais/history/*.json` snapshot files, compute the velocity of architectural drift and identify which modules are degrading fastest.
+Given a list of `.thymus/history/*.json` snapshot files, compute the velocity of architectural drift and identify which modules are degrading fastest.
 
 ## Inputs
 
@@ -1100,13 +1100,13 @@ This script receives scan JSON (via `--scan`) and optional projection JSON (via 
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS generate-report.sh — HTML health report generator
+# Thymus generate-report.sh — HTML health report generator
 # Usage: bash generate-report.sh --scan /path/to/scan.json [--projection '{"velocity":...}']
-# Output: writes .ais/report.html, opens in browser, prints JSON summary to stdout
+# Output: writes .thymus/report.html, opens in browser, prints JSON summary to stdout
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
-AIS_DIR="$PWD/.ais"
+THYMUS_DIR="$PWD/.thymus"
 
 SCAN_FILE=""
 PROJECTION_JSON=""
@@ -1120,7 +1120,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$SCAN_FILE" ] || [ ! -f "$SCAN_FILE" ]; then
-  echo "AIS: --scan <file> is required and must exist" >&2
+  echo "Thymus: --scan <file> is required and must exist" >&2
   exit 1
 fi
 
@@ -1142,7 +1142,7 @@ SCORE=$(echo "$UNIQUE_ERROR_RULES $UNIQUE_WARNING_RULES" | awk '{s=100-$1*10-$2*
 
 # --- Trend arrow (compare to last history snapshot) ---
 PREV_SCORE=""
-HISTORY_DIR="$AIS_DIR/history"
+HISTORY_DIR="$THYMUS_DIR/history"
 mkdir -p "$HISTORY_DIR"
 
 if [ -d "$HISTORY_DIR" ]; then
@@ -1256,14 +1256,14 @@ SCOPE_LABEL="entire project"
 [ -n "$SCOPE" ] && SCOPE_LABEL="$SCOPE"
 
 # --- Generate HTML ---
-REPORT_FILE="$AIS_DIR/report.html"
+REPORT_FILE="$THYMUS_DIR/report.html"
 cat > "$REPORT_FILE" <<HTMLEOF
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AIS Health Report</title>
+  <title>Thymus Health Report</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -1308,7 +1308,7 @@ cat > "$REPORT_FILE" <<HTMLEOF
   </style>
 </head>
 <body>
-  <h1>🏥 AIS Architectural Health</h1>
+  <h1>🏥 Thymus Architectural Health</h1>
   <p class="meta">$(date '+%Y-%m-%d %H:%M') · Scanned $SCOPE_LABEL · $FILES_CHECKED file(s)</p>
 
   <div class="score-row">
@@ -1338,13 +1338,13 @@ fi)
 
   ${PROJECTION_HTML}
 
-  <footer>Generated by AIS · Run /ais:scan for terminal view · /ais:baseline to re-initialize</footer>
+  <footer>Generated by Thymus · Run /thymus:scan for terminal view · /thymus:baseline to re-initialize</footer>
 </body>
 </html>
 HTMLEOF
 
 echo "[$TIMESTAMP] Report written: $REPORT_FILE" >> "$DEBUG_LOG"
-open "$REPORT_FILE" 2>/dev/null || xdg-open "$REPORT_FILE" 2>/dev/null || echo "AIS: Open $REPORT_FILE in your browser" >&2
+open "$REPORT_FILE" 2>/dev/null || xdg-open "$REPORT_FILE" 2>/dev/null || echo "Thymus: Open $REPORT_FILE in your browser" >&2
 
 # Output summary JSON for Claude to narrate
 jq -n \
@@ -1369,18 +1369,18 @@ First run `scan-project.sh` to produce a scan file, then feed it to `generate-re
 
 ```bash
 cd tests/fixtures/unhealthy-project
-bash ../../../scripts/scan-project.sh > /tmp/ais-test-scan.json
-bash ../../../scripts/generate-report.sh --scan /tmp/ais-test-scan.json
+bash ../../../scripts/scan-project.sh > /tmp/thymus-test-scan.json
+bash ../../../scripts/generate-report.sh --scan /tmp/thymus-test-scan.json
 ```
 
 Expected:
-- A file appears at `tests/fixtures/unhealthy-project/.ais/report.html`
+- A file appears at `tests/fixtures/unhealthy-project/.thymus/report.html`
 - stdout JSON contains `score`, `stats`, `report_path`
-- The HTML file exists and contains `AIS Architectural Health`
+- The HTML file exists and contains `Thymus Architectural Health`
 
 ```bash
-[ -f tests/fixtures/unhealthy-project/.ais/report.html ] && echo "PASS: report.html created"
-grep -q "AIS Architectural Health" tests/fixtures/unhealthy-project/.ais/report.html && echo "PASS: title present"
+[ -f tests/fixtures/unhealthy-project/.thymus/report.html ] && echo "PASS: report.html created"
+grep -q "Thymus Architectural Health" tests/fixtures/unhealthy-project/.thymus/report.html && echo "PASS: title present"
 ```
 
 **Step 3: Commit**
@@ -1411,14 +1411,14 @@ description: >-
 argument-hint: "[--diff]"
 ---
 
-# AIS Health Report
+# Thymus Health Report
 
 Generate a full architectural health report. Follow these steps exactly:
 
 ## Step 1: Run the full-project scan
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-scan-$$.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/thymus-health-scan-$$.json
 ```
 
 ## Step 2: Check for history (debt projection)
@@ -1426,7 +1426,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-
 Count history snapshots:
 
 ```bash
-ls ${PWD}/.ais/history/*.json 2>/dev/null | wc -l
+ls ${PWD}/.thymus/history/*.json 2>/dev/null | wc -l
 ```
 
 If there are 2 or more snapshots, invoke the `debt-projector` agent:
@@ -1439,7 +1439,7 @@ If fewer than 2 snapshots exist, set `PROJECTION` to empty string.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-report.sh \
-  --scan /tmp/ais-health-scan-$$.json \
+  --scan /tmp/thymus-health-scan-$$.json \
   [--projection '$PROJECTION']
 ```
 
@@ -1447,7 +1447,7 @@ Include `--projection` only if projection data is available.
 
 ## Step 4: Narrate the results
 
-Read the scan JSON from `/tmp/ais-health-scan-$$.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
+Read the scan JSON from `/tmp/thymus-health-scan-$$.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
 
 ```
 📊 Health Score: <score>/100 <arrow>
@@ -1465,19 +1465,19 @@ Violations: <total> (<errors> errors, <warnings> warnings)
 <trend_text from generate-report.sh output>
 <if projection: velocity + 30-day projection + recommendation>
 
-Full report opened: .ais/report.html
+Full report opened: .thymus/report.html
 ```
 
 If there are no violations, say: `✅ Clean — no architectural violations detected. Health score: 100/100`
 
-Clean up temp file: `rm -f /tmp/ais-health-scan-$$.json`
+Clean up temp file: `rm -f /tmp/thymus-health-scan-$$.json`
 ```
 
 **Step 2: Commit**
 
 ```bash
 git add skills/health/SKILL.md
-git commit -m "feat: implement /ais:health skill with full orchestration"
+git commit -m "feat: implement /thymus:health skill with full orchestration"
 ```
 
 ---
@@ -1503,7 +1503,7 @@ SCAN_FILE=$(mktemp)
 (cd "$UNHEALTHY" && bash "$ROOT/scripts/scan-project.sh" > "$SCAN_FILE")
 
 # Test: report file is created
-REPORT_FILE="$UNHEALTHY/.ais/report.html"
+REPORT_FILE="$UNHEALTHY/.thymus/report.html"
 rm -f "$REPORT_FILE"
 (cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" > /dev/null 2>&1) || true
 
@@ -1516,7 +1516,7 @@ else
 fi
 
 # Test: HTML contains expected sections
-if grep -q "AIS Architectural Health" "$REPORT_FILE" 2>/dev/null; then
+if grep -q "Thymus Architectural Health" "$REPORT_FILE" 2>/dev/null; then
   echo "  ✓ report contains title"
   ((passed++)) || true
 else
@@ -1553,7 +1553,7 @@ else
 fi
 
 # Test: history snapshot was written
-if ls "$UNHEALTHY/.ais/history/"*.json > /dev/null 2>&1; then
+if ls "$UNHEALTHY/.thymus/history/"*.json > /dev/null 2>&1; then
   echo "  ✓ history snapshot written"
   ((passed++)) || true
 else
@@ -1627,8 +1627,8 @@ git commit -m "chore: mark Phase 3 complete in todo.md"
 | Batch | Tasks | Key Deliverables |
 |-------|-------|-----------------|
 | 1: Carryover Fixes | 1–4 | YAML migration, scope_glob_exclude, doc updates |
-| 2: Batch Scanner | 5–7 | scan-project.sh, /ais:scan skill |
-| 3: Reporting | 8–10 | debt-projector agent, generate-report.sh, /ais:health skill |
+| 2: Batch Scanner | 5–7 | scan-project.sh, /thymus:scan skill |
+| 3: Reporting | 8–10 | debt-projector agent, generate-report.sh, /thymus:health skill |
 | 4: Verification | 11–12 | Full test suite, todo update |
 
 All Phase 1 and Phase 2 tests must continue passing throughout.

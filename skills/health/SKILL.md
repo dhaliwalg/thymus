@@ -7,14 +7,14 @@ description: >-
 argument-hint: "[--diff]"
 ---
 
-# AIS Health Report
+# Thymus Health Report
 
 Generate a full architectural health report. Follow these steps exactly:
 
 ## Step 1: Run the full-project scan
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-scan.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/thymus-health-scan.json
 ```
 
 ## Step 2: Check for history (debt projection)
@@ -22,7 +22,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/ais-health-
 Count history snapshots:
 
 ```bash
-ls ${PWD}/.ais/history/*.json 2>/dev/null | wc -l
+ls ${PWD}/.thymus/history/*.json 2>/dev/null | wc -l
 ```
 
 If there are 2 or more snapshots, invoke the `debt-projector` agent:
@@ -35,7 +35,7 @@ If fewer than 2 snapshots exist, set `PROJECTION` to empty string.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-report.sh \
-  --scan /tmp/ais-health-scan.json \
+  --scan /tmp/thymus-health-scan.json \
   [--projection '$PROJECTION']
 ```
 
@@ -43,7 +43,7 @@ Include `--projection` only if projection data is available.
 
 ## Step 4: Narrate the results
 
-Read the scan JSON from `/tmp/ais-health-scan.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
+Read the scan JSON from `/tmp/thymus-health-scan.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
 
 ```
 Health Score: <score>/100 <arrow>
@@ -60,9 +60,9 @@ Top violations:
 Trend: <trend_text from generate-report.sh output>
 <if projection: velocity + 30-day projection + recommendation>
 
-Full report: .ais/report.html
+Full report: .thymus/report.html
 ```
 
 If there are no violations, say: `No violations. Health score: 100/100`
 
-Clean up temp file: `rm -f /tmp/ais-health-scan.json`
+Clean up temp file: `rm -f /tmp/thymus-health-scan.json`

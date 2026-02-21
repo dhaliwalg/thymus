@@ -36,9 +36,9 @@ thymus/
 │   ├── analyze-edit.sh          # Hook: PostToolUse — checks edit against invariants
 │   ├── session-report.sh        # Hook: Stop — aggregates session violations
 │   ├── load-baseline.sh         # Hook: SessionStart — injects baseline context
-│   ├── scan-dependencies.sh     # Skill: called by /ais:baseline and /ais:scan
-│   ├── detect-patterns.sh       # Skill: called by /ais:baseline for pattern discovery
-│   └── generate-report.sh       # Skill: called by /ais:health for HTML report
+│   ├── scan-dependencies.sh     # Skill: called by /thymus:baseline and /thymus:scan
+│   ├── detect-patterns.sh       # Skill: called by /thymus:baseline for pattern discovery
+│   └── generate-report.sh       # Skill: called by /thymus:health for HTML report
 ├── templates/
 │   └── default-rules.yml
 ├── tests/                       # Test fixtures and verification scripts
@@ -96,7 +96,7 @@ thymus/
 - Output errors/warnings to stderr
 - Exit code 0 = success, exit code 2 = block (PreToolUse only, and we do NOT block)
 - Every script must complete in < 2 seconds. If it might be slow, cache aggressively.
-- Use `/tmp/ais-cache-$(echo "$PWD" | md5sum | cut -d' ' -f1)/` for project-specific cache
+- Use `/tmp/thymus-cache-$(echo "$PWD" | md5sum | cut -d' ' -f1)/` for project-specific cache
 
 ### SKILL.md format
 ```yaml
@@ -186,13 +186,13 @@ Every hook invocation must complete in < 2 seconds. Users report that slow hooks
 
 ### 3. Context budget is sacred
 The plugin must add < 3K tokens to the session context. This means:
-- Action skills (`/ais:scan`, `/ais:baseline`, `/ais:learn`, `/ais:configure`) use `disable-model-invocation: true`
-- Only `/ais:health` auto-invokes (when user asks about code quality or health)
+- Action skills (`/thymus:scan`, `/thymus:baseline`, `/thymus:learn`, `/thymus:configure`) use `disable-model-invocation: true`
+- Only `/thymus:health` auto-invokes (when user asks about code quality or health)
 - SessionStart hook injects a COMPACT summary (< 500 tokens), not the full baseline
 - Keep skill descriptions SHORT — they're loaded into context even when not invoked
 
-### 4. .ais/ directory is the source of truth
-All persistent state lives in `.ais/` at the project root:
+### 4. .thymus/ directory is the source of truth
+All persistent state lives in `.thymus/` at the project root:
 - `baseline.json` — structural fingerprint
 - `invariants.yml` — rules (both user-defined and auto-discovered)
 - `history/` — timestamped snapshots for trend analysis
@@ -201,7 +201,7 @@ All persistent state lives in `.ais/` at the project root:
 Users choose whether to `.gitignore` this or commit it for team sharing.
 
 ### 5. Start conservative, let users expand
-Default invariant set should be SMALL (5-10 rules) and high-confidence. Better to miss a violation than to cry wolf. Users expand via `/ais:learn` and `/ais:baseline --refresh`.
+Default invariant set should be SMALL (5-10 rules) and high-confidence. Better to miss a violation than to cry wolf. Users expand via `/thymus:learn` and `/thymus:baseline --refresh`.
 
 ---
 
@@ -280,7 +280,7 @@ invariants:
 **Stdout** (our response):
 ```json
 {
-  "systemMessage": "⚠️ AIS: 1 violation detected in src/routes/users.ts:\n- [ERROR] boundary-db-access: Direct database import in route handler. Use repository pattern.\n  Suggestion: Import from src/repositories/userRepo instead.",
+  "systemMessage": "⚠️ Thymus: 1 violation detected in src/routes/users.ts:\n- [ERROR] boundary-db-access: Direct database import in route handler. Use repository pattern.\n  Suggestion: Import from src/repositories/userRepo instead.",
   "hookSpecificOutput": {}
 }
 ```
@@ -292,7 +292,7 @@ If no violations: output nothing (empty stdout) or `{}`.
 **Stdout**:
 ```json
 {
-  "systemMessage": "📊 AIS Active | Health: 87/100 | 3 known violations | 24 invariants enforced | Run /ais:health for details"
+  "systemMessage": "📊 Thymus Active | Health: 87/100 | 3 known violations | 24 invariants enforced | Run /thymus:health for details"
 }
 ```
 
@@ -301,7 +301,7 @@ If no violations: output nothing (empty stdout) or `{}`.
 **Stdout**:
 ```json
 {
-  "systemMessage": "📋 AIS Session Summary: 14 edits analyzed | 1 new violation (boundary-db-access) | 0 resolved | Health: 85/100 (was 87)"
+  "systemMessage": "📋 Thymus Session Summary: 14 edits analyzed | 1 new violation (boundary-db-access) | 0 resolved | Health: 85/100 (was 87)"
 }
 ```
 
@@ -331,13 +331,13 @@ If no violations: output nothing (empty stdout) or `{}`.
 claude --plugin-dir .
 
 # Verify skills appear
-# Type / and look for ais:health, ais:scan, etc.
+# Type / and look for thymus:health, thymus:scan, etc.
 
 # Test SessionStart hook
-# Check /tmp/ais-debug.log for startup output
+# Check /tmp/thymus-debug.log for startup output
 
 # Test PostToolUse hook
-# Edit any file and check /tmp/ais-debug.log
+# Edit any file and check /tmp/thymus-debug.log
 
 # Test Stop hook
 # End a session and check for summary output

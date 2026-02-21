@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make AIS smarter over time by adding natural-language rule learning, CLAUDE.md suggestions from repeated violations, baseline refresh with diff-based invariant proposals, and severity auto-calibration tracking.
+**Goal:** Make Thymus smarter over time by adding natural-language rule learning, CLAUDE.md suggestions from repeated violations, baseline refresh with diff-based invariant proposals, and severity auto-calibration tracking.
 
 **Architecture:** Four independent features built on the Phase 3 infrastructure. Each feature adds a new script and/or enhances an existing one. All features follow the warn-never-block design, the existing YAML/JSON conventions, and the < 2s hook performance budget.
 
@@ -14,13 +14,13 @@
 
 | File | New/Modified | Purpose |
 |------|-------------|---------|
-| `scripts/add-invariant.sh` | New | Appends a YAML invariant block to `.ais/invariants.yml` |
+| `scripts/add-invariant.sh` | New | Appends a YAML invariant block to `.thymus/invariants.yml` |
 | `skills/learn/SKILL.md` | Modified | Full NL→YAML translation skill (enable model invocation) |
 | `scripts/session-report.sh` | Modified | Add CLAUDE.md suggestions when a rule repeats ≥ 3× |
 | `scripts/refresh-baseline.sh` | New | Diffs current project scan against existing baseline |
 | `skills/baseline/SKILL.md` | Modified | Document `--refresh` argument and orchestration steps |
 | `scripts/calibrate-severity.sh` | New | Analyzes calibration data, reports ignored/fixed counts per rule |
-| `scripts/analyze-edit.sh` | Modified | Track fix/ignore events in `.ais/calibration.json` |
+| `scripts/analyze-edit.sh` | Modified | Track fix/ignore events in `.thymus/calibration.json` |
 | `tests/verify-phase4.sh` | New | Full Phase 4 test suite |
 | `tasks/todo.md` | Modified | Add Phase 4 tasks |
 
@@ -78,7 +78,7 @@ check_json() {
 echo "add-invariant.sh:"
 
 TMPDIR_TEST=$(mktemp -d)
-cp "$UNHEALTHY/.ais/invariants.yml" "$TMPDIR_TEST/invariants.yml"
+cp "$UNHEALTHY/.thymus/invariants.yml" "$TMPDIR_TEST/invariants.yml"
 
 NEW_BLOCK='  - id: test-auto-added-rule
     type: boundary
@@ -159,20 +159,20 @@ Expected: FAIL — `add-invariant.sh missing or not executable`
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS add-invariant.sh
+# Thymus add-invariant.sh
 # Appends a new invariant YAML block (from stdin) to the given invariants.yml.
-# Usage: echo "$YAML_BLOCK" | bash add-invariant.sh /path/to/.ais/invariants.yml
+# Usage: echo "$YAML_BLOCK" | bash add-invariant.sh /path/to/.thymus/invariants.yml
 # Exit 0 on success, exit 1 on failure.
 
 INVARIANTS_YML="${1:-}"
 if [ -z "$INVARIANTS_YML" ] || [ ! -f "$INVARIANTS_YML" ]; then
-  echo "AIS: add-invariant.sh requires path to invariants.yml as argument" >&2
+  echo "Thymus: add-invariant.sh requires path to invariants.yml as argument" >&2
   exit 1
 fi
 
 NEW_BLOCK=$(cat)
 if [ -z "$NEW_BLOCK" ]; then
-  echo "AIS: no invariant block on stdin" >&2
+  echo "Thymus: no invariant block on stdin" >&2
   exit 1
 fi
 
@@ -220,12 +220,12 @@ PYEOF
 if [ "$PARSE_OK" != "ok" ]; then
   # Restore backup if invalid
   mv "${INVARIANTS_YML}.bak" "$INVARIANTS_YML"
-  echo "AIS: Invalid YAML — invariants.yml restored from backup" >&2
+  echo "Thymus: Invalid YAML — invariants.yml restored from backup" >&2
   exit 1
 fi
 
 rm -f "${INVARIANTS_YML}.bak"
-echo "AIS: Invariant added successfully to $(basename "$INVARIANTS_YML")"
+echo "Thymus: Invariant added successfully to $(basename "$INVARIANTS_YML")"
 ```
 
 Make it executable:
@@ -250,7 +250,7 @@ git commit -m "feat(phase4): add add-invariant.sh and Phase 4 test suite scaffol
 
 ---
 
-## Task 2: `/ais:learn` skill — NL→YAML translation
+## Task 2: `/thymus:learn` skill — NL→YAML translation
 
 **Files:**
 - Modify: `skills/learn/SKILL.md`
@@ -308,16 +308,16 @@ Expected: 2 tests fail (disable-model-invocation present, add-invariant.sh not r
 ---
 name: learn
 description: >-
-  Teach AIS a new architectural invariant in natural language.
+  Teach Thymus a new architectural invariant in natural language.
   Use when the user says "always", "never", "must", "should", "only" about
-  code structure. Examples: /ais:learn all DB queries go through repositories
-  /ais:learn never import from src/db in route handlers
+  code structure. Examples: /thymus:learn all DB queries go through repositories
+  /thymus:learn never import from src/db in route handlers
 argument-hint: "<natural language rule>"
 ---
 
-# AIS Learn — Teach a New Invariant
+# Thymus Learn — Teach a New Invariant
 
-The user wants to teach AIS a new architectural rule in natural language:
+The user wants to teach Thymus a new architectural rule in natural language:
 
 **User's rule:** `$ARGUMENTS`
 
@@ -396,7 +396,7 @@ For `dependency`:
 Present the invariant clearly and ask for confirmation:
 
 ```
-I'll add this invariant to `.ais/invariants.yml`:
+I'll add this invariant to `.thymus/invariants.yml`:
 
 ```yaml
 [the generated YAML block]
@@ -410,7 +410,7 @@ Does this look right? If you'd like to adjust the glob, severity, or description
 When the user confirms, run this bash command to append the invariant:
 
 ```bash
-echo '[the exact YAML block]' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.ais/invariants.yml"
+echo '[the exact YAML block]' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.thymus/invariants.yml"
 ```
 
 The YAML block must use the indentation shown in the examples above (2 spaces + `- id:` for the entry, 4 spaces for fields, 6 spaces for list items).
@@ -418,16 +418,16 @@ The YAML block must use the indentation shown in the examples above (2 spaces + 
 After saving, clear the invariants cache so the next hook invocation picks up the new rule:
 ```bash
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-rm -f "/tmp/ais-cache-${PROJECT_HASH}/invariants.json" "/tmp/ais-cache-${PROJECT_HASH}/invariants-scan.json"
+rm -f "/tmp/thymus-cache-${PROJECT_HASH}/invariants.json" "/tmp/thymus-cache-${PROJECT_HASH}/invariants-scan.json"
 ```
 
-Then confirm to the user: "✅ Invariant `<id>` added. AIS will enforce this rule on the next file edit."
+Then confirm to the user: "✅ Invariant `<id>` added. Thymus will enforce this rule on the next file edit."
 
-### Step 4 — If .ais/invariants.yml doesn't exist
+### Step 4 — If .thymus/invariants.yml doesn't exist
 
-Check for `.ais/invariants.yml` in `$PWD`. If it doesn't exist, tell the user:
+Check for `.thymus/invariants.yml` in `$PWD`. If it doesn't exist, tell the user:
 
-"`.ais/invariants.yml` not found. Run `/ais:baseline` first to initialize AIS, then re-run `/ais:learn`."
+"`.thymus/invariants.yml` not found. Run `/thymus:baseline` first to initialize Thymus, then re-run `/thymus:learn`."
 ```
 
 ### Step 4: Run test to verify it passes
@@ -442,7 +442,7 @@ Expected: Task 2 section passes (3 checks pass)
 
 ```bash
 git add skills/learn/SKILL.md tests/verify-phase4.sh
-git commit -m "feat(phase4): implement /ais:learn skill with NL-to-YAML translation"
+git commit -m "feat(phase4): implement /thymus:learn skill with NL-to-YAML translation"
 ```
 
 ---
@@ -464,14 +464,14 @@ Add to `tests/verify-phase4.sh`:
 echo ""
 echo "session-report.sh (CLAUDE.md suggestions):"
 
-# Setup: create a temp AIS dir with a baseline and 3 history snapshots
+# Setup: create a temp Thymus dir with a baseline and 3 history snapshots
 # all containing the same rule violation (to trigger the suggestion threshold)
 TMPDIR_REPORT=$(mktemp -d)
-mkdir -p "$TMPDIR_REPORT/.ais/history"
-echo '{"modules":[],"boundaries":[],"patterns":[],"conventions":[]}' > "$TMPDIR_REPORT/.ais/baseline.json"
+mkdir -p "$TMPDIR_REPORT/.thymus/history"
+echo '{"modules":[],"boundaries":[],"patterns":[],"conventions":[]}' > "$TMPDIR_REPORT/.thymus/baseline.json"
 
 for i in 1 2 3; do
-  cat > "$TMPDIR_REPORT/.ais/history/2026-02-20T00:0${i}:00.json" <<JSON
+  cat > "$TMPDIR_REPORT/.thymus/history/2026-02-20T00:0${i}:00.json" <<JSON
 {
   "timestamp": "2026-02-20T00:0${i}:00",
   "session_id": "sess-${i}",
@@ -484,7 +484,7 @@ done
 
 # Create a session-violations cache (empty — this session had no violations)
 HASH=$(echo "$TMPDIR_REPORT" | md5 -q 2>/dev/null || echo "$TMPDIR_REPORT" | md5sum | cut -d' ' -f1)
-CACHE="/tmp/ais-cache-${HASH}"
+CACHE="/tmp/thymus-cache-${HASH}"
 mkdir -p "$CACHE"
 echo "[]" > "$CACHE/session-violations.json"
 
@@ -529,8 +529,8 @@ Add this block after the existing summary is built (just before the final `jq -n
 # --- CLAUDE.md suggestions for repeated violations ---
 # Count all violation rule occurrences across all history snapshots
 SUGGESTION=""
-if [ -d "$AIS_DIR/history" ]; then
-  HISTORY_FILES=$(find "$AIS_DIR/history" -name "*.json" 2>/dev/null | sort)
+if [ -d "$THYMUS_DIR/history" ]; then
+  HISTORY_FILES=$(find "$THYMUS_DIR/history" -name "*.json" 2>/dev/null | sort)
   if [ -n "$HISTORY_FILES" ]; then
     # Collect all rule IDs across history into a flat list
     ALL_RULES=$(cat $HISTORY_FILES 2>/dev/null \
@@ -539,7 +539,7 @@ if [ -d "$AIS_DIR/history" ]; then
     if [ -n "$ALL_RULES" ] && [ "$ALL_RULES" != "null" ]; then
       REPEAT_RULES=$(echo "$ALL_RULES" | jq -r '.rule' | tr '\n' ', ' | sed 's/,$//')
       if [ -n "$REPEAT_RULES" ]; then
-        SUGGESTION="\n\n💡 CLAUDE.md suggestion: Rule(s) [${REPEAT_RULES}] violated ≥ 3 times. Consider adding to CLAUDE.md:\n  'Never violate ${REPEAT_RULES} — run /ais:scan to check before committing.'"
+        SUGGESTION="\n\n💡 CLAUDE.md suggestion: Rule(s) [${REPEAT_RULES}] violated ≥ 3 times. Consider adding to CLAUDE.md:\n  'Never violate ${REPEAT_RULES} — run /thymus:scan to check before committing.'"
       fi
     fi
   fi
@@ -581,7 +581,7 @@ git commit -m "feat(phase4): add CLAUDE.md suggestions to session-report when ru
 
 ---
 
-## Task 4: `refresh-baseline.sh` + `/ais:baseline --refresh`
+## Task 4: `refresh-baseline.sh` + `/thymus:baseline --refresh`
 
 Re-scan the project, diff against the existing baseline, and return a structured diff that the skill uses to propose new invariants.
 
@@ -612,10 +612,10 @@ fi
 
 # Setup: create a temp project with a baseline
 TMPDIR_REFRESH=$(mktemp -d)
-mkdir -p "$TMPDIR_REFRESH/src/routes" "$TMPDIR_REFRESH/src/models" "$TMPDIR_REFRESH/.ais"
+mkdir -p "$TMPDIR_REFRESH/src/routes" "$TMPDIR_REFRESH/src/models" "$TMPDIR_REFRESH/.thymus"
 
 # Create a baseline that does NOT include "src/services" module
-cat > "$TMPDIR_REFRESH/.ais/baseline.json" <<'BASELINE'
+cat > "$TMPDIR_REFRESH/.thymus/baseline.json" <<'BASELINE'
 {
   "generated_at": "2026-01-01T00:00:00",
   "modules": [
@@ -671,20 +671,20 @@ Expected: FAIL — `refresh-baseline.sh missing or not executable`
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS refresh-baseline.sh
+# Thymus refresh-baseline.sh
 # Re-scans the project structure and diffs against the existing baseline.json.
 # Outputs JSON: { new_directories, removed_directories, new_file_types, changed_module_count }
-# Used by /ais:baseline --refresh to propose new invariants.
+# Used by /thymus:baseline --refresh to propose new invariants.
 
-AIS_DIR="$PWD/.ais"
-BASELINE="$AIS_DIR/baseline.json"
+THYMUS_DIR="$PWD/.thymus"
+BASELINE="$THYMUS_DIR/baseline.json"
 
 if [ ! -f "$BASELINE" ]; then
-  echo '{"error":"No baseline.json found. Run /ais:baseline first.","new_directories":[]}'
+  echo '{"error":"No baseline.json found. Run /thymus:baseline first.","new_directories":[]}'
   exit 0
 fi
 
-IGNORED=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".ais")
+IGNORED=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
 IGNORED_ARGS=()
 for p in "${IGNORED[@]}"; do
   IGNORED_ARGS+=(-not -path "*/$p" -not -path "*/$p/*")
@@ -758,7 +758,7 @@ chmod +x scripts/refresh-baseline.sh
 Read the current baseline SKILL.md first. Then add at the end of the skill:
 
 ```markdown
-## Refresh mode: `/ais:baseline --refresh`
+## Refresh mode: `/thymus:baseline --refresh`
 
 When called with `--refresh`, compare the current project structure against the saved baseline and propose invariants for any new patterns.
 
@@ -771,7 +771,7 @@ When called with `--refresh`, compare the current project structure against the 
    - A convention rule: "Do service files follow a naming convention?"
 4. Show the proposals to the user in a numbered list and ask which to add.
 5. For each approved invariant, run:
-   `echo '<yaml_block>' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.ais/invariants.yml"`
+   `echo '<yaml_block>' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.thymus/invariants.yml"`
 6. Report summary: "Found N new directories. Added X invariants."
 ```
 
@@ -794,7 +794,7 @@ git commit -m "feat(phase4): add refresh-baseline.sh and --refresh support to ba
 
 ## Task 5: Severity auto-calibration tracking
 
-Track which violations get fixed vs. ignored. When `analyze-edit.sh` runs on a file that previously had violations, check if those violations are now gone (fixed) or still present (ignored). Persist counts to `.ais/calibration.json`. Implement `calibrate-severity.sh` to report calibration recommendations.
+Track which violations get fixed vs. ignored. When `analyze-edit.sh` runs on a file that previously had violations, check if those violations are now gone (fixed) or still present (ignored). Persist counts to `.thymus/calibration.json`. Implement `calibrate-severity.sh` to report calibration recommendations.
 
 **Files:**
 - Modify: `scripts/analyze-edit.sh`
@@ -822,8 +822,8 @@ fi
 
 # Setup: create calibration.json with a rule that has been ignored many times
 TMPDIR_CAL=$(mktemp -d)
-mkdir -p "$TMPDIR_CAL/.ais"
-cat > "$TMPDIR_CAL/.ais/calibration.json" <<'CALIB'
+mkdir -p "$TMPDIR_CAL/.thymus"
+cat > "$TMPDIR_CAL/.thymus/calibration.json" <<'CALIB'
 {
   "rules": {
     "convention-test-colocation": {"fixed": 1, "ignored": 8},
@@ -879,14 +879,14 @@ Expected: FAIL — `calibrate-severity.sh missing or not executable`
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS calibrate-severity.sh
-# Reads .ais/calibration.json and outputs severity adjustment recommendations.
+# Thymus calibrate-severity.sh
+# Reads .thymus/calibration.json and outputs severity adjustment recommendations.
 # A rule with ≥ 10 data points and > 70% ignore rate → recommend downgrade.
 # A rule with ≥ 10 data points and 100% fix rate → no change needed.
 # Output: JSON { recommendations: [{rule, action, reason, fixed, ignored}] }
 
-AIS_DIR="$PWD/.ais"
-CALIBRATION="$AIS_DIR/calibration.json"
+THYMUS_DIR="$PWD/.thymus"
+CALIBRATION="$THYMUS_DIR/calibration.json"
 
 if [ ! -f "$CALIBRATION" ]; then
   echo '{"recommendations":[],"note":"No calibration data yet. Edit files to build up data."}'
@@ -938,7 +938,7 @@ Find the line after `[ ${#violation_lines[@]} -eq 0 ] && exit 0` and before the 
 # Check if this file had violations previously (in session cache) and compare.
 # If a previous violation for this file is now gone → "fixed"
 # If it remains → "ignored"
-CALIBRATION_FILE="$AIS_DIR/calibration.json"
+CALIBRATION_FILE="$THYMUS_DIR/calibration.json"
 [ -f "$CALIBRATION_FILE" ] || echo '{"rules":{}}' > "$CALIBRATION_FILE"
 
 # Find violations for this file from earlier in this session
@@ -1078,7 +1078,7 @@ git commit -m "chore(phase4): mark all Phase 4 tasks complete in todo.md"
 
 - [ ] `bash tests/verify-phase4.sh` passes with 0 failures
 - [ ] `bash tests/verify-phase2.sh && bash tests/verify-phase3.sh` still pass (no regressions)
-- [ ] `/ais:learn some rule` translates to YAML and calls `add-invariant.sh`
+- [ ] `/thymus:learn some rule` translates to YAML and calls `add-invariant.sh`
 - [ ] `session-report.sh` suggests CLAUDE.md rule when any violation repeats ≥ 3 times
 - [ ] `refresh-baseline.sh` outputs new directories not in baseline
 - [ ] `calibrate-severity.sh` recommends downgrading rules with ≥ 70% ignore rate

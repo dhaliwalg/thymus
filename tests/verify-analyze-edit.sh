@@ -44,7 +44,7 @@ else
   exit 1
 fi
 
-# Test 3: missing .ais/ produces no output (silent exit)
+# Test 3: missing .thymus/ produces no output (silent exit)
 TMP_DIR=$(mktemp -d)
 input=$(jq -n \
   --arg tool "Edit" \
@@ -55,7 +55,7 @@ output=$(cd "$TMP_DIR" && echo "$input" | bash "$SCRIPT")
 rm -rf "$TMP_DIR"
 
 if [ -z "$output" ] || [ "$output" = "{}" ]; then
-  echo "PASS: silent exit when no .ais/ present"
+  echo "PASS: silent exit when no .thymus/ present"
 else
   echo "FAIL: unexpected output when no baseline"
   exit 1

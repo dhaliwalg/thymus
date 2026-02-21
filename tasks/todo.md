@@ -1,4 +1,4 @@
-# AIS — Current Sprint Tasks
+# Thymus — Current Sprint Tasks
 
 ## Phase 0 — Foundation & Scaffolding
 
@@ -25,7 +25,7 @@
 ## Phase 2 — Real-Time Enforcement
 
 - [x] Apply Phase 1 fixes (invariants.json output, source_glob arrays, || true guards)
-- [x] Add .ais/invariants.json test fixtures
+- [x] Add .thymus/invariants.json test fixtures
 - [x] Implement scripts/analyze-edit.sh (boundary + pattern + convention checking)
 - [x] Implement scripts/session-report.sh (session aggregation + history snapshots)
 - [x] Enhance scripts/load-baseline.sh (reads invariants.json, shows recent violation count)

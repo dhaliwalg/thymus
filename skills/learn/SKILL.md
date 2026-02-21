@@ -1,16 +1,16 @@
 ---
 name: learn
 description: >-
-  Teach AIS a new architectural invariant in natural language.
+  Teach Thymus a new architectural invariant in natural language.
   Use when the user says "always", "never", "must", "should", "only" about
-  code structure. Examples: /ais:learn all DB queries go through repositories
-  /ais:learn never import from src/db in route handlers
+  code structure. Examples: /thymus:learn all DB queries go through repositories
+  /thymus:learn never import from src/db in route handlers
 argument-hint: "<natural language rule>"
 ---
 
-# AIS Learn — Teach a New Invariant
+# Thymus Learn — Teach a New Invariant
 
-The user wants to teach AIS a new architectural rule in natural language:
+The user wants to teach Thymus a new architectural rule in natural language:
 
 **User's rule:** `$ARGUMENTS`
 
@@ -18,11 +18,11 @@ The user wants to teach AIS a new architectural rule in natural language:
 
 Translate this natural language rule into a formal YAML invariant and save it.
 
-### Precondition — check `.ais/invariants.yml` exists
+### Precondition — check `.thymus/invariants.yml` exists
 
-Before doing anything, verify `$PWD/.ais/invariants.yml` exists. If it doesn't, tell the user:
+Before doing anything, verify `$PWD/.thymus/invariants.yml` exists. If it doesn't, tell the user:
 
-"`.ais/invariants.yml` not found. Run `/ais:baseline` first to initialize AIS, then re-run `/ais:learn`."
+"`.thymus/invariants.yml` not found. Run `/thymus:baseline` first to initialize Thymus, then re-run `/thymus:learn`."
 
 Stop here if the file is missing.
 
@@ -97,7 +97,7 @@ For `dependency`:
 Present the invariant clearly and ask for confirmation:
 
 ```
-I'll add this invariant to `.ais/invariants.yml`:
+I'll add this invariant to `.thymus/invariants.yml`:
 
 ```yaml
 [the generated YAML block]
@@ -111,7 +111,7 @@ Does this look right? If you'd like to adjust the glob, severity, or description
 When the user confirms, save the invariant using a heredoc to handle multi-line YAML safely:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.ais/invariants.yml" << 'YAML_EOF'
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/add-invariant.sh "$PWD/.thymus/invariants.yml" << 'YAML_EOF'
 [the exact YAML block — indented with 2 spaces before `- id:`, 4 spaces for fields, 6 for list items]
 YAML_EOF
 ```
@@ -121,8 +121,8 @@ The YAML block must use the indentation shown in the examples above (2 spaces + 
 After saving, clear the invariants cache so the next hook invocation picks up the new rule:
 ```bash
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-rm -f "/tmp/ais-cache-${PROJECT_HASH}/invariants.json" "/tmp/ais-cache-${PROJECT_HASH}/invariants-scan.json"
+rm -f "/tmp/thymus-cache-${PROJECT_HASH}/invariants.json" "/tmp/thymus-cache-${PROJECT_HASH}/invariants-scan.json"
 ```
 
-Then confirm to the user: "Invariant `<id>` added. AIS will enforce this rule on the next file edit."
+Then confirm to the user: "Invariant `<id>` added. Thymus will enforce this rule on the next file edit."
 

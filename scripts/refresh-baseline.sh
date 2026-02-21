@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS refresh-baseline.sh
+# Thymus refresh-baseline.sh
 # Re-scans the project structure and diffs against the existing baseline.json.
 # Outputs JSON: { new_directories, removed_directories, new_file_types, baseline_module_count }
-# Used by /ais:baseline --refresh to propose new invariants.
+# Used by /thymus:baseline --refresh to propose new invariants.
 
-AIS_DIR="$PWD/.ais"
-BASELINE="$AIS_DIR/baseline.json"
+THYMUS_DIR="$PWD/.thymus"
+BASELINE="$THYMUS_DIR/baseline.json"
 
 if [ ! -f "$BASELINE" ]; then
-  echo '{"error":"No baseline.json found. Run /ais:baseline first.","new_directories":[]}'
+  echo '{"error":"No baseline.json found. Run /thymus:baseline first.","new_directories":[]}'
   exit 0
 fi
 
-IGNORED=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".ais")
+IGNORED=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
 IGNORED_ARGS=()
 for p in "${IGNORED[@]}"; do
   IGNORED_ARGS+=(-not -path "*/$p" -not -path "*/$p/*")

@@ -1,1 +1,1 @@
-# AIS test fixture — correct import target for routes
+# Thymus test fixture — correct import target for routes

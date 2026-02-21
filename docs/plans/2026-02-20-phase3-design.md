@@ -7,7 +7,7 @@
 
 ## Overview
 
-Phase 3 adds the visible output layer to AIS: a full-project batch scanner, an interactive HTML health report, a debt projection agent, and diff-aware scanning. It also resolves two Phase 2 carryover issues: the `invariants.json` vs `.yml` inconsistency and the broken extglob negation syntax in `scope_glob`.
+Phase 3 adds the visible output layer to Thymus: a full-project batch scanner, an interactive HTML health report, a debt projection agent, and diff-aware scanning. It also resolves two Phase 2 carryover issues: the `invariants.json` vs `.yml` inconsistency and the broken extglob negation syntax in `scope_glob`.
 
 ---
 
@@ -44,7 +44,7 @@ Uses the shared `load_invariants()` helper (see YAML Migration below) to parse `
 Supports `--diff` flag: limits file set to `git diff --name-only HEAD` output for PR-review workflows.
 
 ### `scripts/generate-report.sh`
-Reads scan output (via `--scan path`) and optional projection (via `--projection '{...}'`). Computes health score, reads `.ais/history/*.json` for trend, generates a single self-contained `.ais/report.html` (all CSS and JS inline — no external files). Writes a history snapshot. Opens the report in the browser.
+Reads scan output (via `--scan path`) and optional projection (via `--projection '{...}'`). Computes health score, reads `.thymus/history/*.json` for trend, generates a single self-contained `.thymus/report.html` (all CSS and JS inline — no external files). Writes a history snapshot. Opens the report in the browser.
 
 **Health score formula:**
 ```
@@ -65,7 +65,7 @@ Opens with: `open "$report" 2>/dev/null || xdg-open "$report" 2>/dev/null || tru
 Full Claude-narrated skill (no `disable-model-invocation`). Orchestration:
 
 1. Run `scripts/scan-project.sh` → capture violations JSON to temp file
-2. If `.ais/history/` has ≥2 snapshots: invoke `debt-projector` agent
+2. If `.thymus/history/` has ≥2 snapshots: invoke `debt-projector` agent
 3. Run `scripts/generate-report.sh --scan <scan_file> [--projection '<json>']`
 4. Narrate: score, module breakdown, top violations, trend, projection
 
@@ -73,7 +73,7 @@ Full Claude-narrated skill (no `disable-model-invocation`). Orchestration:
 Keeps `disable-model-invocation: true`. Calls `scripts/scan-project.sh "$ARGUMENTS"`, outputs a human-readable violation table.
 
 ### `agents/debt-projector.md`
-Analyzes `.ais/history/*.json` snapshots. Input: list of snapshot paths. Output:
+Analyzes `.thymus/history/*.json` snapshots. Input: list of snapshot paths. Output:
 
 ```json
 {
@@ -85,7 +85,7 @@ Analyzes `.ais/history/*.json` snapshots. Input: list of snapshot paths. Output:
 }
 ```
 
-`velocity` = average change in violation count per day across snapshots. `projection_30d` = projected new violations in 30 days at current velocity. Invoked by Claude as a subagent inside `/ais:health`.
+`velocity` = average change in violation count per day across snapshots. `projection_30d` = projected new violations in 30 days at current velocity. Invoked by Claude as a subagent inside `/thymus:health`.
 
 ---
 
@@ -98,8 +98,8 @@ All invariant storage moves to `.yml` format, consistent with the spec. A `load_
 Files changed:
 - `scripts/analyze-edit.sh` — switch from `invariants.json` to `load_invariants()` + `invariants.yml`
 - `scripts/load-baseline.sh` — same
-- `tests/fixtures/unhealthy-project/.ais/invariants.json` → `invariants.yml`
-- `tests/fixtures/healthy-project/.ais/invariants.json` → `invariants.yml` (if exists)
+- `tests/fixtures/unhealthy-project/.thymus/invariants.json` → `invariants.yml`
+- `tests/fixtures/healthy-project/.thymus/invariants.json` → `invariants.yml` (if exists)
 - All test verification scripts updated to reference `.yml`
 
 No `.json` fallback — clean cut.
@@ -133,21 +133,21 @@ Updated in:
 
 ## Execution Flow
 
-### `/ais:scan [scope]`
+### `/thymus:scan [scope]`
 ```
 bash scripts/scan-project.sh [scope]
   → JSON output
   → Claude formats terminal violation table
 ```
 
-### `/ais:health`
+### `/thymus:health`
 ```
-bash scripts/scan-project.sh → /tmp/ais-scan-$HASH.json
+bash scripts/scan-project.sh → /tmp/thymus-scan-$HASH.json
   (if ≥2 history snapshots)
   → invoke debt-projector agent → projection JSON
-bash scripts/generate-report.sh --scan /tmp/ais-scan-$HASH.json [--projection '...']
-  → writes .ais/report.html
-  → writes .ais/history/<timestamp>.json
+bash scripts/generate-report.sh --scan /tmp/thymus-scan-$HASH.json [--projection '...']
+  → writes .thymus/report.html
+  → writes .thymus/history/<timestamp>.json
   → opens browser
 Claude narrates: score, modules, top violations, trend, projection
 ```
@@ -164,9 +164,9 @@ bash scripts/scan-project.sh --diff
 
 ## Definition of Done
 
-- `/ais:health` narrates a health summary and opens `report.html` in the browser
+- `/thymus:health` narrates a health summary and opens `report.html` in the browser
 - `report.html` includes score, module table, SVG trend chart, debt projection callout (when available)
-- `/ais:scan src/module` scopes correctly and outputs a violation table
+- `/thymus:scan src/module` scopes correctly and outputs a violation table
 - `debt-projector` produces actionable velocity + projection when ≥2 history snapshots exist
 - All invariants read from `invariants.yml` (no `.json` variant anywhere)
 - `scope_glob_exclude` works correctly in both `analyze-edit.sh` and `scan-project.sh`

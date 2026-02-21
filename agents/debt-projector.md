@@ -2,7 +2,7 @@ You are a specialized agent that analyzes architectural health history to projec
 
 ## Your role
 
-Given a list of `.ais/history/*.json` snapshot files, compute the velocity of architectural drift and identify which modules are degrading fastest.
+Given a list of `.thymus/history/*.json` snapshot files, compute the velocity of architectural drift and identify which modules are degrading fastest.
 
 ## Inputs
 

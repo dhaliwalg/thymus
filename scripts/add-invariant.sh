@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS add-invariant.sh
+# Thymus add-invariant.sh
 # Appends a new invariant YAML block (from stdin) to the given invariants.yml.
-# Usage: echo "$YAML_BLOCK" | bash add-invariant.sh /path/to/.ais/invariants.yml
+# Usage: echo "$YAML_BLOCK" | bash add-invariant.sh /path/to/.thymus/invariants.yml
 # Exit 0 on success, exit 1 on failure.
 
 INVARIANTS_YML="${1:-}"
 if [ -z "$INVARIANTS_YML" ] || [ ! -f "$INVARIANTS_YML" ]; then
-  echo "AIS: add-invariant.sh requires path to invariants.yml as argument" >&2
+  echo "Thymus: add-invariant.sh requires path to invariants.yml as argument" >&2
   exit 1
 fi
 
 NEW_BLOCK=$(cat)
 if [ -z "$NEW_BLOCK" ]; then
-  echo "AIS: no invariant block on stdin" >&2
+  echo "Thymus: no invariant block on stdin" >&2
   exit 1
 fi
 
@@ -26,7 +26,7 @@ printf '\n' >> "$INVARIANTS_YML"
 printf '%s\n' "$NEW_BLOCK" >> "$INVARIANTS_YML"
 
 # Validate: write parser to temp file to avoid heredoc-in-subshell issues
-VALIDATOR=$(mktemp /tmp/ais-validate-XXXXXX.py)
+VALIDATOR=$(mktemp /tmp/thymus-validate-XXXXXX.py)
 cat > "$VALIDATOR" << 'ENDPY'
 import sys, re
 
@@ -74,9 +74,9 @@ rm -f "$VALIDATOR"
 if [ "$PARSE_OK" != "ok" ]; then
   # Restore backup if invalid
   mv "${INVARIANTS_YML}.bak" "$INVARIANTS_YML"
-  echo "AIS: Invalid YAML — invariants.yml restored from backup" >&2
+  echo "Thymus: Invalid YAML — invariants.yml restored from backup" >&2
   exit 1
 fi
 
 rm -f "${INVARIANTS_YML}.bak"
-echo "AIS: Invariant added successfully to $(basename "$INVARIANTS_YML")"
+echo "Thymus: Invariant added successfully to $(basename "$INVARIANTS_YML")"

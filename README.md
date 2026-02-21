@@ -15,7 +15,7 @@ Code gets generated fast. Over time, architecture quietly rots — boundary viol
 
 **Initialize** (once per project)
 ```
-/ais:baseline
+/thymus:baseline
 ```
 
 Scans the project, proposes invariants, waits for your approval before saving anything.
@@ -24,7 +24,7 @@ That's it. Thymus now checks every file you edit against your rules.
 
 **Check health**
 ```
-/ais:health
+/thymus:health
 ```
 
 ---
@@ -43,53 +43,53 @@ Three hooks:
 
 ## Commands
 
-### `/ais:baseline`
+### `/thymus:baseline`
 Initialize or refresh the baseline for the current project.
 
 ```
-/ais:baseline            # first-time setup
-/ais:baseline --refresh  # re-scan after a big refactor
+/thymus:baseline            # first-time setup
+/thymus:baseline --refresh  # re-scan after a big refactor
 ```
 
 Produces:
-- `.ais/baseline.json` — structural fingerprint
-- `.ais/invariants.yml` — your rules
-- `.ais/config.yml` — thresholds and ignored paths
+- `.thymus/baseline.json` — structural fingerprint
+- `.thymus/invariants.yml` — your rules
+- `.thymus/config.yml` — thresholds and ignored paths
 
-### `/ais:scan`
+### `/thymus:scan`
 Scan the whole project (or a subdirectory) right now.
 
 ```
-/ais:scan
-/ais:scan src/auth
-/ais:scan --diff        # only files changed since git HEAD
+/thymus:scan
+/thymus:scan src/auth
+/thymus:scan --diff        # only files changed since git HEAD
 ```
 
-### `/ais:health`
-Full health report with trend data. Generates `.ais/report.html`.
+### `/thymus:health`
+Full health report with trend data. Generates `.thymus/report.html`.
 
-### `/ais:learn`
+### `/thymus:learn`
 Teach Thymus a new rule in plain English.
 
 ```
-/ais:learn all database queries must go through the repository layer
-/ais:learn React components must not import from other components directly
-/ais:learn never use raw SQL outside src/db
+/thymus:learn all database queries must go through the repository layer
+/thymus:learn React components must not import from other components directly
+/thymus:learn never use raw SQL outside src/db
 ```
 
 Translates it to YAML and asks for confirmation before saving.
 
-### `/ais:configure`
-Adjust thresholds and ignored paths via `.ais/config.yml`.
+### `/thymus:configure`
+Adjust thresholds and ignored paths via `.thymus/config.yml`.
 
 ---
 
-## The `.ais/` directory
+## The `.thymus/` directory
 
 All state lives here. Commit it for team sharing, or `.gitignore` it for personal use.
 
 ```
-.ais/
+.thymus/
 ├── baseline.json      # structural fingerprint
 ├── invariants.yml     # your rules (human-editable)
 ├── config.yml         # thresholds, ignored paths
@@ -102,7 +102,7 @@ All state lives here. Commit it for team sharing, or `.gitignore` it for persona
 
 ## Rule syntax
 
-Edit `.ais/invariants.yml` directly or use `/ais:learn`.
+Edit `.thymus/invariants.yml` directly or use `/thymus:learn`.
 
 ```yaml
 # boundary rule: module A can't import from module B
@@ -151,7 +151,7 @@ Severity: `error` (hard rules), `warning` (best practices), `info` (informationa
 
 ## Config
 
-`.ais/config.yml`:
+`.thymus/config.yml`:
 
 ```yaml
 version: "1.0"
@@ -178,7 +178,7 @@ language: typescript   # auto-detected; override if needed
 ## Performance
 
 - Every hook runs in < 2s
-- Parsed invariants cached in `/tmp/ais-cache-{hash}/`
+- Parsed invariants cached in `/tmp/thymus-cache-{hash}/`
 - Only checks invariants that match the edited file's glob
 - Binary files, symlinks, and files > 500KB are skipped
 
@@ -187,31 +187,31 @@ language: typescript   # auto-detected; override if needed
 ## FAQ
 
 **A rule keeps firing but I always fix it. Can Thymus adjust automatically?**
-Thymus tracks this in `.ais/calibration.json`. After enough data points, run `/ais:configure` or manually run `bash scripts/calibrate-severity.sh` from the plugin directory to get downgrade recommendations.
+Thymus tracks this in `.thymus/calibration.json`. After enough data points, run `/thymus:configure` or manually run `bash scripts/calibrate-severity.sh` from the plugin directory to get downgrade recommendations.
 
 **I refactored and the baseline is stale.**
-Run `/ais:baseline --refresh`.
+Run `/thymus:baseline --refresh`.
 
 **How do I share invariants with my team?**
-Commit `.ais/invariants.yml` and `.ais/baseline.json`. Add `.ais/history/` and `.ais/report.html` to `.gitignore`.
+Commit `.thymus/invariants.yml` and `.thymus/baseline.json`. Add `.thymus/history/` and `.thymus/report.html` to `.gitignore`.
 
 **Does Thymus block edits?**
 No. It warns but never blocks. Blocking mid-task causes confusing behavior — a warning gives the context needed to self-correct.
 
 **Thymus is flagging something that's intentional.**
-Edit `.ais/invariants.yml` directly and change the severity to `info`, or remove the rule.
+Edit `.thymus/invariants.yml` directly and change the severity to `info`, or remove the rule.
 
 ---
 
 ## Troubleshooting
 
-**Hook not firing:** check `/tmp/ais-debug.log`
+**Hook not firing:** check `/tmp/thymus-debug.log`
 
-**"no baseline found":** run `/ais:baseline` in your project root
+**"no baseline found":** run `/thymus:baseline` in your project root
 
-**"failed to parse invariants.yml":** check indentation — each rule starts with `  - id:` (2 spaces). Use `/ais:learn` to add rules safely.
+**"failed to parse invariants.yml":** check indentation — each rule starts with `  - id:` (2 spaces). Use `/thymus:learn` to add rules safely.
 
-**Hook is slow:** check `/tmp/ais-debug.log` for timing. Add large generated directories to `ignored_paths` in `.ais/config.yml`.
+**Hook is slow:** check `/tmp/thymus-debug.log` for timing. Add large generated directories to `ignored_paths` in `.thymus/config.yml`.
 
 ---
 
@@ -227,3 +227,4 @@ Edit `.ais/invariants.yml` directly and change the severity to `info`, or remove
 ## License
 
 MIT
+

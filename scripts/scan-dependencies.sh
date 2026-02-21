@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS scan-dependencies.sh
+# Thymus scan-dependencies.sh
 # Detects language, framework, external deps, and import relationships.
 # Usage: bash scan-dependencies.sh [project_root]
 # Output: JSON to stdout
 
 PROJECT_ROOT="${1:-$PWD}"
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build")

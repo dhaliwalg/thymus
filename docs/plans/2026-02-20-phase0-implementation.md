@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Create a working AIS plugin skeleton — all 5 skills visible in the `/` menu, hooks fire on edit events, and `load-baseline.sh` prompts setup when `.ais/` is absent.
+**Goal:** Create a working Thymus plugin skeleton — all 5 skills visible in the `/` menu, hooks fire on edit events, and `load-baseline.sh` prompts setup when `.thymus/` is absent.
 
-**Architecture:** Pure bash scripts + markdown skill files. No external dependencies. All hooks log to `/tmp/ais-debug.log`. Skills are stubs — real logic deferred to later phases.
+**Architecture:** Pure bash scripts + markdown skill files. No external dependencies. All hooks log to `/tmp/thymus-debug.log`. Skills are stubs — real logic deferred to later phases.
 
 **Tech Stack:** bash 4+, jq, Claude Code plugin system (plugin.json, SKILL.md, hooks.json)
 
@@ -52,7 +52,7 @@ git commit -m "chore: scaffold Phase 0 directory structure"
 **Step 1: Write `tasks/todo.md`**
 
 ```markdown
-# AIS — Current Sprint Tasks
+# Thymus — Current Sprint Tasks
 
 ## Phase 0 — Foundation & Scaffolding
 
@@ -74,7 +74,7 @@ See ROADMAP.md for Phase 1+ tasks.
 **Step 2: Write `tasks/lessons.md`**
 
 ```markdown
-# AIS — Lessons Learned
+# Thymus — Lessons Learned
 
 > Accumulated patterns and mistakes to avoid.
 > Updated after every correction or discovered issue.
@@ -114,20 +114,20 @@ description: >-
 argument-hint: "[--verbose]"
 ---
 
-# AIS Health Report
+# Thymus Health Report
 
-AIS has not been initialized yet for this project.
+Thymus has not been initialized yet for this project.
 
 To get started, run:
 
 ```
-/ais:baseline
+/thymus:baseline
 ```
 
 This will scan your codebase, detect structural patterns, and create
-a baseline in `.ais/baseline.json` that future scans compare against.
+a baseline in `.thymus/baseline.json` that future scans compare against.
 
-Once initialized, `/ais:health` will generate a full architectural
+Once initialized, `/thymus:health` will generate a full architectural
 health report showing module health scores, violation counts, and
 drift over time.
 ```
@@ -162,25 +162,25 @@ All four get `disable-model-invocation: true` since they're action skills.
 ---
 name: learn
 description: >-
-  Teach AIS a new architectural invariant in natural language.
+  Teach Thymus a new architectural invariant in natural language.
   Use when the user says "always", "never", "must", "should" about
-  code structure. Example: /ais:learn all DB queries go through repositories
+  code structure. Example: /thymus:learn all DB queries go through repositories
 disable-model-invocation: true
 argument-hint: "<natural language rule>"
 ---
 
-# AIS Learn
+# Thymus Learn
 
-AIS has not been initialized yet. Run `/ais:baseline` first to create
+Thymus has not been initialized yet. Run `/thymus:baseline` first to create
 the baseline before teaching new invariants.
 
 Once initialized, use this skill to add invariants:
 
-  /ais:learn all database queries must go through the repository layer
-  /ais:learn React components must not import from other components directly
+  /thymus:learn all database queries must go through the repository layer
+  /thymus:learn React components must not import from other components directly
 
-AIS will translate your natural language rule into a formal invariant
-in `.ais/invariants.yml` and confirm before saving.
+Thymus will translate your natural language rule into a formal invariant
+in `.thymus/invariants.yml` and confirm before saving.
 ```
 
 **Step 2: Write `skills/scan/SKILL.md`**
@@ -196,19 +196,19 @@ disable-model-invocation: true
 argument-hint: "[path/to/module]"
 ---
 
-# AIS Scan
+# Thymus Scan
 
-AIS has not been initialized yet. Run `/ais:baseline` first.
+Thymus has not been initialized yet. Run `/thymus:baseline` first.
 
 Once initialized, scan the full project:
 
-  /ais:scan
+  /thymus:scan
 
 Scope to a specific module:
 
-  /ais:scan src/auth
+  /thymus:scan src/auth
 
-AIS will check all files against `invariants.yml` and report
+Thymus will check all files against `invariants.yml` and report
 violations grouped by severity.
 ```
 
@@ -218,25 +218,25 @@ violations grouped by severity.
 ---
 name: baseline
 description: >-
-  Initialize or refresh the AIS architectural baseline for this project.
+  Initialize or refresh the Thymus architectural baseline for this project.
   Run this first in any new project, or with --refresh to update after
-  major refactors. Creates .ais/baseline.json with the structural fingerprint.
+  major refactors. Creates .thymus/baseline.json with the structural fingerprint.
 disable-model-invocation: true
 argument-hint: "[--refresh]"
 ---
 
-# AIS Baseline
+# Thymus Baseline
 
-This skill initializes AIS for your project by scanning the codebase
+This skill initializes Thymus for your project by scanning the codebase
 and producing a structural baseline.
 
 **This feature is coming in Phase 1.**
 
-For now, you can manually create `.ais/` to silence the setup prompt:
+For now, you can manually create `.thymus/` to silence the setup prompt:
 
 ```bash
-mkdir -p .ais
-echo '{"version":"1.0","modules":[],"patterns":[],"boundaries":[],"conventions":[]}' > .ais/baseline.json
+mkdir -p .thymus
+echo '{"version":"1.0","modules":[],"patterns":[],"boundaries":[],"conventions":[]}' > .thymus/baseline.json
 ```
 
 Full baseline scanning (with pattern detection, dependency graph,
@@ -249,24 +249,24 @@ and auto-discovered invariants) will be available in Phase 1.
 ---
 name: configure
 description: >-
-  Configure AIS thresholds, ignored paths, and rule settings.
+  Configure Thymus thresholds, ignored paths, and rule settings.
   Use when the user wants to adjust severity levels, exclude directories,
-  or change how AIS behaves in this project.
+  or change how Thymus behaves in this project.
 disable-model-invocation: true
 argument-hint: "[setting] [value]"
 ---
 
-# AIS Configure
+# Thymus Configure
 
-AIS has not been initialized yet. Run `/ais:baseline` first.
+Thymus has not been initialized yet. Run `/thymus:baseline` first.
 
-Once initialized, you can configure AIS behavior in `.ais/config.yml`:
+Once initialized, you can configure Thymus behavior in `.thymus/config.yml`:
 
-  /ais:configure ignore node_modules dist .next
-  /ais:configure severity boundary error
-  /ais:configure threshold health-warning 70
+  /thymus:configure ignore node_modules dist .next
+  /thymus:configure severity boundary error
+  /thymus:configure threshold health-warning 70
 
-Configuration is stored in `.ais/config.yml` and takes effect
+Configuration is stored in `.thymus/config.yml` and takes effect
 on the next hook invocation.
 ```
 
@@ -342,7 +342,7 @@ git commit -m "feat: add hooks/hooks.json with PostToolUse, Stop, SessionStart"
 **Files:**
 - Create: `scripts/load-baseline.sh`
 
-This is the SessionStart hook. It checks if `.ais/baseline.json` exists in the
+This is the SessionStart hook. It checks if `.thymus/baseline.json` exists in the
 current project (i.e. `$PWD`). If not, it tells Claude to suggest setup.
 
 **Step 1: Write the script**
@@ -351,13 +351,13 @@ current project (i.e. `$PWD`). If not, it tells Claude to suggest setup.
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS SessionStart hook — load-baseline.sh
+# Thymus SessionStart hook — load-baseline.sh
 # Injects a compact baseline summary into Claude's context at session start.
 # Output: JSON systemMessage (< 500 tokens)
 
-DEBUG_LOG="/tmp/ais-debug.log"
-AIS_DIR="$PWD/.ais"
-BASELINE="$AIS_DIR/baseline.json"
+DEBUG_LOG="/tmp/thymus-debug.log"
+THYMUS_DIR="$PWD/.thymus"
+BASELINE="$THYMUS_DIR/baseline.json"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 echo "[$TIMESTAMP] load-baseline.sh fired in $PWD" >> "$DEBUG_LOG"
@@ -366,7 +366,7 @@ if [ ! -f "$BASELINE" ]; then
   echo "[$TIMESTAMP] No baseline found — outputting setup prompt" >> "$DEBUG_LOG"
   cat <<'EOF'
 {
-  "systemMessage": "📊 AIS: No baseline detected for this project. Run /ais:baseline to initialize architectural monitoring."
+  "systemMessage": "📊 Thymus: No baseline detected for this project. Run /thymus:baseline to initialize architectural monitoring."
 }
 EOF
   exit 0
@@ -375,7 +375,7 @@ fi
 # Baseline exists — output a compact summary
 MODULE_COUNT=$(jq '.modules | length' "$BASELINE" 2>/dev/null || echo "0")
 INVARIANT_COUNT=0
-INVARIANTS_FILE="$AIS_DIR/invariants.yml"
+INVARIANTS_FILE="$THYMUS_DIR/invariants.yml"
 if [ -f "$INVARIANTS_FILE" ]; then
   INVARIANT_COUNT=$(grep -c "^  - id:" "$INVARIANTS_FILE" 2>/dev/null || echo "0")
 fi
@@ -384,7 +384,7 @@ echo "[$TIMESTAMP] Baseline found — $MODULE_COUNT modules, $INVARIANT_COUNT in
 
 cat <<EOF
 {
-  "systemMessage": "📊 AIS Active | $MODULE_COUNT modules | $INVARIANT_COUNT invariants enforced | Run /ais:health for full report"
+  "systemMessage": "📊 Thymus Active | $MODULE_COUNT modules | $INVARIANT_COUNT invariants enforced | Run /thymus:health for full report"
 }
 EOF
 ```
@@ -405,13 +405,13 @@ bash scripts/load-baseline.sh
 Expected output:
 ```json
 {
-  "systemMessage": "📊 AIS: No baseline detected for this project. Run /ais:baseline to initialize architectural monitoring."
+  "systemMessage": "📊 Thymus: No baseline detected for this project. Run /thymus:baseline to initialize architectural monitoring."
 }
 ```
 
-Also verify it logged to `/tmp/ais-debug.log`:
+Also verify it logged to `/tmp/thymus-debug.log`:
 ```bash
-tail -5 /tmp/ais-debug.log
+tail -5 /tmp/thymus-debug.log
 ```
 
 **Step 4: Commit**
@@ -436,11 +436,11 @@ This is the PostToolUse hook for Edit|Write. In Phase 0 it just logs and exits c
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS PostToolUse hook — analyze-edit.sh
+# Thymus PostToolUse hook — analyze-edit.sh
 # Receives tool input JSON via stdin. In Phase 0: logs only.
-# Phase 2 will add real invariant checking against .ais/invariants.yml
+# Phase 2 will add real invariant checking against .thymus/invariants.yml
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 input=$(cat)
@@ -469,7 +469,7 @@ echo "Exit code: $?"
 Expected: no output, exit code 0.
 
 ```bash
-tail -3 /tmp/ais-debug.log
+tail -3 /tmp/thymus-debug.log
 ```
 
 Expected: log line showing `analyze-edit.sh: Edit on src/test.ts`
@@ -496,11 +496,11 @@ This is the Stop hook. In Phase 0 it logs the session end.
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS Stop hook — session-report.sh
+# Thymus Stop hook — session-report.sh
 # Fires at end of every Claude session. In Phase 0: logs only.
 # Phase 2 will aggregate violations and compute health score delta.
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 input=$(cat)
@@ -523,7 +523,7 @@ chmod +x scripts/session-report.sh
 ```bash
 echo '{"session_id":"test-123"}' | bash scripts/session-report.sh
 echo "Exit code: $?"
-tail -3 /tmp/ais-debug.log
+tail -3 /tmp/thymus-debug.log
 ```
 
 Expected: exit 0, log entry shows session end.
@@ -561,7 +561,7 @@ Expected: all dirs and files present per design.
 cd /tmp && bash /Users/vapor/Documents/projs/claude-immune-system/scripts/load-baseline.sh
 ```
 
-Expected: "No baseline detected" JSON (since /tmp has no .ais/).
+Expected: "No baseline detected" JSON (since /tmp has no .thymus/).
 
 **Step 4: Update tasks/todo.md** — mark all Phase 0 items complete.
 
@@ -584,5 +584,5 @@ After all tasks:
 - [ ] All 3 scripts are executable (`chmod +x` applied)
 - [ ] `bash scripts/load-baseline.sh` outputs valid JSON
 - [ ] `echo '{}' | bash scripts/analyze-edit.sh` exits 0 silently
-- [ ] `/tmp/ais-debug.log` contains entries from both test runs
+- [ ] `/tmp/thymus-debug.log` contains entries from both test runs
 - [ ] `tasks/todo.md` has all Phase 0 items checked

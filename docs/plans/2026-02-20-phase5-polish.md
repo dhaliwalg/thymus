@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make AIS production-ready for marketplace distribution: comprehensive docs, language auto-detection, edge-case hardening, and all distribution artifacts.
+**Goal:** Make Thymus production-ready for marketplace distribution: comprehensive docs, language auto-detection, edge-case hardening, and all distribution artifacts.
 
 **Architecture:** Six independent tasks. Tasks 1-2 are pure documentation (write files, no scripts). Tasks 3-5 add a new detection script, harden existing hook scripts against edge cases, and add a Python test fixture. Task 6 creates the final verification suite.
 
@@ -68,7 +68,7 @@ SOFTWARE.
 ```markdown
 # Changelog
 
-All notable changes to AIS (Architectural Immune System) are documented here.
+All notable changes to Thymus (Thymus) are documented here.
 
 ## [1.0.0] — 2026-02-20
 
@@ -76,8 +76,8 @@ All notable changes to AIS (Architectural Immune System) are documented here.
 - **Phase 0**: Plugin scaffold — 5 skills, 3 hooks, plugin.json manifest
 - **Phase 1**: Baseline engine — structural scan, dependency map, invariant proposals
 - **Phase 2**: Real-time enforcement — PostToolUse hook, session-end summaries
-- **Phase 3**: Health dashboard — HTML report, `/ais:scan`, debt projection agent
-- **Phase 4**: Learning & auto-discovery — `/ais:learn`, CLAUDE.md suggestions, baseline refresh, severity calibration
+- **Phase 3**: Health dashboard — HTML report, `/thymus:scan`, debt projection agent
+- **Phase 4**: Learning & auto-discovery — `/thymus:learn`, CLAUDE.md suggestions, baseline refresh, severity calibration
 - **Phase 5**: Polish & distribution — README, language auto-detection, edge-case hardening, marketplace metadata
 ```
 
@@ -86,7 +86,7 @@ All notable changes to AIS (Architectural Immune System) are documented here.
 ```json
 {
   "name": "claude-immune-system",
-  "display_name": "Architectural Immune System (AIS)",
+  "display_name": "Thymus",
   "description": "Continuously monitors codebase health, detects architectural drift, and enforces structural invariants in real-time across every Claude Code session.",
   "version": "1.0.0",
   "author": {
@@ -97,7 +97,7 @@ All notable changes to AIS (Architectural Immune System) are documented here.
     { "name": "health", "description": "Generate HTML architectural health report" },
     { "name": "scan", "description": "Quick terminal scan for violations" },
     { "name": "baseline", "description": "Initialize or refresh structural baseline" },
-    { "name": "learn", "description": "Teach AIS a new invariant in natural language" },
+    { "name": "learn", "description": "Teach Thymus a new invariant in natural language" },
     { "name": "configure", "description": "Adjust thresholds and ignored paths" }
   ],
   "hooks": ["PostToolUse", "Stop", "SessionStart"],
@@ -128,11 +128,11 @@ Write the full user-facing README. No tests needed.
 ### Step 1: Write `README.md`
 
 ```markdown
-# Architectural Immune System (AIS)
+# Thymus
 
 > A Claude Code plugin that continuously monitors codebase health, detects architectural drift, and enforces structural invariants in real-time.
 
-Claude generates code. You merge it. Over days and weeks, architecture silently rots — duplicated patterns, inconsistent abstractions, violated boundaries. **AIS is the immune system.** It learns what "healthy" looks like and rejects violations before they compound.
+Claude generates code. You merge it. Over days and weeks, architecture silently rots — duplicated patterns, inconsistent abstractions, violated boundaries. **Thymus is the immune system.** It learns what "healthy" looks like and rejects violations before they compound.
 
 ---
 
@@ -145,22 +145,22 @@ Claude generates code. You merge it. Over days and weeks, architecture silently 
 
 **2. Initialize** (run once per project)
 ```
-/ais:baseline
+/thymus:baseline
 ```
-AIS scans your project, proposes invariants, and waits for your approval before saving.
+Thymus scans your project, proposes invariants, and waits for your approval before saving.
 
-**3. You're done.** AIS now monitors every file edit and warns Claude about violations in real-time.
+**3. You're done.** Thymus now monitors every file edit and warns Claude about violations in real-time.
 
 **4. Check health anytime**
 ```
-/ais:health
+/thymus:health
 ```
 
 ---
 
 ## How It Works
 
-AIS fires on three events:
+Thymus fires on three events:
 
 | Event | What happens |
 |-------|-------------|
@@ -172,59 +172,59 @@ AIS fires on three events:
 
 ## Commands
 
-### `/ais:baseline`
-Initialize AIS for the current project. Scans structure, maps dependencies, proposes invariants.
+### `/thymus:baseline`
+Initialize Thymus for the current project. Scans structure, maps dependencies, proposes invariants.
 
 ```
-/ais:baseline            # First-time setup
-/ais:baseline --refresh  # Re-scan after major refactors; shows diff + proposes new rules
+/thymus:baseline            # First-time setup
+/thymus:baseline --refresh  # Re-scan after major refactors; shows diff + proposes new rules
 ```
 
 **What it produces:**
-- `.ais/baseline.json` — structural fingerprint (modules, boundaries, patterns)
-- `.ais/invariants.yml` — your architectural rules
-- `.ais/config.yml` — thresholds and ignored paths
+- `.thymus/baseline.json` — structural fingerprint (modules, boundaries, patterns)
+- `.thymus/invariants.yml` — your architectural rules
+- `.thymus/config.yml` — thresholds and ignored paths
 
-### `/ais:scan`
+### `/thymus:scan`
 Quick terminal scan. Checks all files against current invariants.
 
 ```
-/ais:scan                # Scan entire project
-/ais:scan src/auth       # Scope to a subdirectory
-/ais:scan --diff         # Only files changed since git HEAD (great for PR review)
+/thymus:scan                # Scan entire project
+/thymus:scan src/auth       # Scope to a subdirectory
+/thymus:scan --diff         # Only files changed since git HEAD (great for PR review)
 ```
 
-### `/ais:health`
-Full health report with trend data. Opens an interactive HTML dashboard in `.ais/report.html`.
+### `/thymus:health`
+Full health report with trend data. Opens an interactive HTML dashboard in `.thymus/report.html`.
 
 Shows: overall score, violation breakdown, drift timeline, tech debt projection.
 
-### `/ais:learn`
-Teach AIS a new rule in plain English.
+### `/thymus:learn`
+Teach Thymus a new rule in plain English.
 
 ```
-/ais:learn all database queries must go through the repository layer
-/ais:learn React components must not import from other components directly
-/ais:learn never use raw SQL outside src/db
+/thymus:learn all database queries must go through the repository layer
+/thymus:learn React components must not import from other components directly
+/thymus:learn never use raw SQL outside src/db
 ```
 
-AIS translates to a formal YAML invariant and asks for confirmation before saving.
+Thymus translates to a formal YAML invariant and asks for confirmation before saving.
 
-### `/ais:configure`
-Adjust thresholds and ignored paths (edit `.ais/config.yml` directly or use this command as a guide).
+### `/thymus:configure`
+Adjust thresholds and ignored paths (edit `.thymus/config.yml` directly or use this command as a guide).
 
 ---
 
-## The `.ais/` Directory
+## The `.thymus/` Directory
 
-All AIS state lives here. Safe to `.gitignore` (personal) or commit (team sharing).
+All Thymus state lives here. Safe to `.gitignore` (personal) or commit (team sharing).
 
 ```
-.ais/
+.thymus/
 ├── baseline.json      # Structural fingerprint — modules, dependencies, patterns
 ├── invariants.yml     # Your architectural rules (human-editable)
 ├── config.yml         # Thresholds, ignored paths, language settings
-├── report.html        # Latest health report (updated on /ais:health)
+├── report.html        # Latest health report (updated on /thymus:health)
 ├── calibration.json   # Violation fix/ignore tracking for auto-calibration
 └── history/           # Timestamped snapshots for trend analysis
     └── YYYY-MM-DDTHH-MM-SS.json
@@ -234,7 +234,7 @@ All AIS state lives here. Safe to `.gitignore` (personal) or commit (team sharin
 
 ## Invariant Rule Syntax
 
-Edit `.ais/invariants.yml` directly or use `/ais:learn` to add rules.
+Edit `.thymus/invariants.yml` directly or use `/thymus:learn` to add rules.
 
 ### Boundary rule — module A must not import from module B
 ```yaml
@@ -289,7 +289,7 @@ Edit `.ais/invariants.yml` directly or use `/ais:learn` to add rules.
 
 ## Configuration
 
-`.ais/config.yml` controls thresholds and ignored paths:
+`.thymus/config.yml` controls thresholds and ignored paths:
 
 ```yaml
 version: "1.0"
@@ -315,9 +315,9 @@ language: typescript           # auto-detected; override if needed
 
 ## Performance
 
-AIS is designed to never slow Claude down:
+Thymus is designed to never slow Claude down:
 - Every hook completes in < 2 seconds
-- Parsed invariants are cached in `/tmp/ais-cache-{project-hash}/`
+- Parsed invariants are cached in `/tmp/thymus-cache-{project-hash}/`
 - Only invariants matching the edited file's glob are checked
 - Binary files, symlinks, and files > 500KB are skipped automatically
 
@@ -325,35 +325,35 @@ AIS is designed to never slow Claude down:
 
 ## FAQ
 
-**Q: AIS is warning about something that's intentional in my codebase.**
-Run `/ais:configure` or edit `.ais/invariants.yml` to adjust the rule severity to `info` or remove it.
+**Q: Thymus is warning about something that's intentional in my codebase.**
+Run `/thymus:configure` or edit `.thymus/invariants.yml` to adjust the rule severity to `info` or remove it.
 
 **Q: I refactored and now the baseline is stale.**
-Run `/ais:baseline --refresh`. AIS will show what changed and propose new invariants.
+Run `/thymus:baseline --refresh`. Thymus will show what changed and propose new invariants.
 
 **Q: How do I share invariants with my team?**
-Commit `.ais/invariants.yml` and `.ais/baseline.json`. Add `.ais/history/` and `.ais/report.html` to `.gitignore`.
+Commit `.thymus/invariants.yml` and `.thymus/baseline.json`. Add `.thymus/history/` and `.thymus/report.html` to `.gitignore`.
 
-**Q: A violation keeps appearing but I always fix it. Can AIS auto-adjust?**
-Yes — AIS tracks fix/ignore patterns in `.ais/calibration.json`. After 10+ data points, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/calibrate-severity.sh` for recommendations.
+**Q: A violation keeps appearing but I always fix it. Can Thymus auto-adjust?**
+Yes — Thymus tracks fix/ignore patterns in `.thymus/calibration.json`. After 10+ data points, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/calibrate-severity.sh` for recommendations.
 
-**Q: Can I use AIS without a baseline?**
-Partially — you can manually write `.ais/invariants.yml` and AIS will enforce it. But `/ais:baseline` gives you auto-detected rules tailored to your project.
+**Q: Can I use Thymus without a baseline?**
+Partially — you can manually write `.thymus/invariants.yml` and Thymus will enforce it. But `/thymus:baseline` gives you auto-detected rules tailored to your project.
 
-**Q: Does AIS block edits?**
-Never. AIS warns Claude but never blocks. Blocking mid-task causes confusing behavior — warning gives Claude the information it needs to self-correct.
+**Q: Does Thymus block edits?**
+Never. Thymus warns Claude but never blocks. Blocking mid-task causes confusing behavior — warning gives Claude the information it needs to self-correct.
 
 ---
 
 ## Troubleshooting
 
-**Hook not firing:** Check `/tmp/ais-debug.log` for output.
+**Hook not firing:** Check `/tmp/thymus-debug.log` for output.
 
-**"No baseline detected":** Run `/ais:baseline` in your project directory.
+**"No baseline detected":** Run `/thymus:baseline` in your project directory.
 
-**"Failed to parse invariants.yml":** Check YAML indentation — each invariant starts with `  - id:` (2 spaces). Use `/ais:learn` to add rules safely.
+**"Failed to parse invariants.yml":** Check YAML indentation — each invariant starts with `  - id:` (2 spaces). Use `/thymus:learn` to add rules safely.
 
-**Slow hook:** Check `/tmp/ais-debug.log` for timing. If > 2s, your project may have a very large `src/` directory. Add large generated directories to `ignored_paths` in `.ais/config.yml`.
+**Slow hook:** Check `/tmp/thymus-debug.log` for timing. If > 2s, your project may have a very large `src/` directory. Add large generated directories to `ignored_paths` in `.thymus/config.yml`.
 
 ---
 
@@ -501,7 +501,7 @@ Expected: FAIL — `detect-framework.sh missing or not executable`
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS detect-framework.sh
+# Thymus detect-framework.sh
 # Detects the language and framework of the project in $PWD.
 # Output: JSON { language, framework, config_file }
 # Language: typescript | javascript | python | go | rust | java | unknown
@@ -640,7 +640,7 @@ UNHEALTHY="$ROOT/tests/fixtures/unhealthy-project"
 
 # Test: binary file is silently skipped (no output, exit 0)
 TMPDIR_BIN=$(mktemp -d)
-cp -r "$UNHEALTHY/.ais" "$TMPDIR_BIN/"
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_BIN/"
 # Create a binary file (PNG magic bytes)
 printf '\x89PNG\r\n\x1a\n' > "$TMPDIR_BIN/image.png"
 BIN_OUT=$(cd "$TMPDIR_BIN" && printf '{"tool_name":"Write","tool_input":{"file_path":"%s/image.png"},"tool_response":{"success":true},"session_id":"test"}' "$TMPDIR_BIN" \
@@ -657,7 +657,7 @@ rm -rf "$TMPDIR_BIN"
 
 # Test: very large file is silently skipped
 TMPDIR_LARGE=$(mktemp -d)
-cp -r "$UNHEALTHY/.ais" "$TMPDIR_LARGE/"
+cp -r "$UNHEALTHY/.thymus" "$TMPDIR_LARGE/"
 # Create a large file (600KB of text with forbidden import)
 python3 -c "
 import os
@@ -687,7 +687,7 @@ Expected: FAIL on binary file test (analyze-edit.sh doesn't skip binaries yet)
 
 ### Step 3: Modify `scripts/analyze-edit.sh`
 
-After the existing `[ -z "$file_path" ] && exit 0` line (line 18), add these guards before the `AIS_DIR=` assignment:
+After the existing `[ -z "$file_path" ] && exit 0` line (line 18), add these guards before the `THYMUS_DIR=` assignment:
 
 ```bash
 # --- Skip binary files ---
@@ -753,7 +753,7 @@ git commit -m "fix(phase5): skip binary files, symlinks, and files >500KB in hoo
 Add a minimal Python project fixture so the scanner can be verified on Python files.
 
 **Files:**
-- Create: `tests/fixtures/python-project/.ais/invariants.yml`
+- Create: `tests/fixtures/python-project/.thymus/invariants.yml`
 - Create: `tests/fixtures/python-project/src/routes/users.py`
 - Create: `tests/fixtures/python-project/src/db/client.py`
 - Test: `tests/verify-phase5.sh` (new section)
@@ -802,7 +802,7 @@ Expected: FAIL — python-project fixture missing
 
 ### Step 3: Create the Python project fixture
 
-**`tests/fixtures/python-project/.ais/invariants.yml`:**
+**`tests/fixtures/python-project/.thymus/invariants.yml`:**
 ```yaml
 version: "1.0"
 invariants:
@@ -827,7 +827,7 @@ invariants:
 
 **`tests/fixtures/python-project/src/routes/users.py`:**
 ```python
-# AIS test fixture — intentional boundary violation
+# Thymus test fixture — intentional boundary violation
 # This route imports directly from db instead of going through a repository
 
 from src.db.client import get_connection  # VIOLATION: should use src/repositories/
@@ -839,7 +839,7 @@ def get_user(user_id: int):
 
 **`tests/fixtures/python-project/src/db/client.py`:**
 ```python
-# AIS test fixture — db layer (permitted to have raw SQL)
+# Thymus test fixture — db layer (permitted to have raw SQL)
 import sqlite3
 
 def get_connection():
@@ -853,7 +853,7 @@ def execute_raw(sql: str):
 
 **`tests/fixtures/python-project/src/repositories/__init__.py`:**
 ```python
-# AIS test fixture — correct import target for routes
+# Thymus test fixture — correct import target for routes
 ```
 
 ### Step 4: Run test to verify it passes

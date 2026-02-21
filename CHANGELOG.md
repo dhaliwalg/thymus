@@ -8,6 +8,6 @@ All notable changes to Thymus are documented here.
 - Plugin scaffold — 5 skills, 3 hooks, plugin.json manifest
 - Baseline engine — structural scan, dependency map, invariant proposals
 - Real-time enforcement — PostToolUse hook, session-end summaries
-- Health dashboard — HTML report, `/ais:scan`, debt projection agent
-- Learning & auto-discovery — `/ais:learn`, CLAUDE.md suggestions, baseline refresh, severity calibration
+- Health dashboard — HTML report, `/thymus:scan`, debt projection agent
+- Learning & auto-discovery — `/thymus:learn`, CLAUDE.md suggestions, baseline refresh, severity calibration
 - Polish & distribution — README, language auto-detection, edge-case hardening, marketplace metadata

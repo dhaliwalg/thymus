@@ -8,7 +8,7 @@ disable-model-invocation: true
 argument-hint: "[path/to/module] [--diff]"
 ---
 
-# AIS Scan
+# Thymus Scan
 
 Run the full-project invariant scanner:
 
@@ -34,7 +34,7 @@ N violation(s) found (X errors, Y warnings).
 
 If `stats.total` is 0, output: `No violations found.`
 
-Append at the end: `Run /ais:health for the full report with trend data.`
+Append at the end: `Run /thymus:health for the full report with trend data.`
 
 **Scoping:** If `$ARGUMENTS` contains a path (e.g. `src/auth`), the scan is limited to that directory.
 

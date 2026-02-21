@@ -2,13 +2,13 @@
 
 **Date:** 2026-02-20
 **Phase:** 1 of 5
-**Goal:** AIS can scan a codebase and produce a structural baseline — the "healthy" fingerprint stored in `.ais/`.
+**Goal:** Thymus can scan a codebase and produce a structural baseline — the "healthy" fingerprint stored in `.thymus/`.
 
 ---
 
 ## Data Schema
 
-### `.ais/baseline.json`
+### `.thymus/baseline.json`
 Structural fingerprint written on confirmation. Never edited directly by users.
 
 ```json
@@ -49,8 +49,8 @@ Structural fingerprint written on confirmation. Never edited directly by users.
 }
 ```
 
-### `.ais/invariants.yml`
-User-editable rules file. Separate from `baseline.json` so users can tune without re-baselining. Written on first baseline, updated by `/ais:learn`.
+### `.thymus/invariants.yml`
+User-editable rules file. Separate from `baseline.json` so users can tune without re-baselining. Written on first baseline, updated by `/thymus:learn`.
 
 ```yaml
 version: "1.0"
@@ -69,8 +69,8 @@ invariants:
 
 Invariant types: `boundary`, `convention`, `structure`, `dependency`, `pattern`.
 
-### `.ais/config.yml`
-Thresholds and ignored paths. Sane defaults; user adjusts via `/ais:configure`.
+### `.thymus/config.yml`
+Thresholds and ignored paths. Sane defaults; user adjusts via `/thymus:configure`.
 
 ```yaml
 version: "1.0"
@@ -109,15 +109,15 @@ Produces dependency and import data.
 - `framework` — detected from deps in manifest (next → nextjs, express → express, django → django, etc.)
 - `external_deps` — list of external package names from manifest
 - `import_frequency` — top 20 most-imported internal paths (grep-based)
-- `cross_module_imports` — raw list of `{from, to}` pairs showing which directories import from which; no cycle detection (deferred to Phase 3 `/ais:scan`)
+- `cross_module_imports` — raw list of `{from, to}` pairs showing which directories import from which; no cycle detection (deferred to Phase 3 `/thymus:scan`)
 
 Both scripts complete in < 5s for a 50K LOC codebase.
 
 ---
 
-## `/ais:baseline` Skill Flow
+## `/thymus:baseline` Skill Flow
 
-**`disable-model-invocation: true`** — prevents Claude from auto-triggering on mentions of "architecture". User must explicitly type `/ais:baseline`. Claude reads SKILL.md and follows instructions within the existing session.
+**`disable-model-invocation: true`** — prevents Claude from auto-triggering on mentions of "architecture". User must explicitly type `/thymus:baseline`. Claude reads SKILL.md and follows instructions within the existing session.
 
 Steps Claude follows when invoked:
 
@@ -131,7 +131,7 @@ Steps Claude follows when invoked:
    - Module boundaries inferred from `cross_module_imports`
    - ≥ 5 proposed invariants with reasoning
 5. End with: *"Review above. Tell me what to adjust, or say 'save' to write the baseline."*
-6. On confirmation: write `baseline.json`, `invariants.yml`, `config.yml` to `.ais/`
+6. On confirmation: write `baseline.json`, `invariants.yml`, `config.yml` to `.thymus/`
 
 The conversation IS the review loop — no state machine needed. User replies in natural language, Claude adjusts and re-presents.
 
@@ -139,7 +139,7 @@ The conversation IS the review loop — no state machine needed. User replies in
 
 ## `agents/invariant-detector.md`
 
-Subagent invoked during `/ais:baseline`. Receives raw scan JSON. Outputs 5–10 proposed invariants in YAML, ranked by confidence. Rules:
+Subagent invoked during `/thymus:baseline`. Receives raw scan JSON. Outputs 5–10 proposed invariants in YAML, ranked by confidence. Rules:
 - Propose only high-confidence invariants (patterns seen ≥ 3 times or explicit layer structure detected)
 - Include `reasoning` field explaining why each invariant was proposed
 - Prefer `boundary` and `convention` types for first baseline (most impactful, lowest false positive rate)
@@ -163,9 +163,9 @@ Framework auto-detected from `scan-dependencies.sh` output. Claude includes the 
 
 ## Definition of Done
 
-- `/ais:baseline` produces a valid `baseline.json` for a real TypeScript project
+- `/thymus:baseline` produces a valid `baseline.json` for a real TypeScript project
 - `invariant-detector` proposes ≥ 5 meaningful invariants
 - Baseline captures modules, patterns, boundaries, conventions
 - Both scripts complete in < 5s (tested on a 50K LOC project)
-- `.ais/` is portable — safe to commit or gitignore
+- `.thymus/` is portable — safe to commit or gitignore
 - No circular dep detection in Phase 1 (deferred to Phase 3)

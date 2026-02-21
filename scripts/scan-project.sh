@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS scan-project.sh — batch invariant checker
+# Thymus scan-project.sh — batch invariant checker
 # Usage: bash scan-project.sh [scope_path] [--diff]
 # Output: JSON { violations: [...], stats: {...}, scope: "..." }
 # scope_path: optional subdirectory to limit scan (e.g. "src/auth")
 # --diff: limit scan to files changed since git HEAD
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
-AIS_DIR="$PWD/.ais"
-INVARIANTS_YML="$AIS_DIR/invariants.yml"
+THYMUS_DIR="$PWD/.thymus"
+INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
 SCOPE=""
 DIFF_MODE=false
@@ -24,18 +24,18 @@ done
 echo "[$TIMESTAMP] scan-project.sh: scope=${SCOPE:-full} diff=$DIFF_MODE" >> "$DEBUG_LOG"
 
 if [ ! -f "$INVARIANTS_YML" ]; then
-  echo '{"error":"No invariants.yml found. Run /ais:baseline first.","violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
+  echo '{"error":"No invariants.yml found. Run /thymus:baseline first.","violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
   exit 0
 fi
 
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 mkdir -p "$CACHE_DIR"
 
 # --- YAML → JSON (cached by mtime) ---
 load_invariants() {
   local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "AIS: invariants.yml not found" >&2; return 1; }
+  [ -f "$yml" ] || { echo "Thymus: invariants.yml not found" >&2; return 1; }
   if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
     echo "$cache"; return 0
   fi
@@ -85,7 +85,7 @@ def parse(src, dst):
 parse(sys.argv[1], sys.argv[2])
 PYEOF
   if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "AIS: Failed to parse invariants.yml" >&2; return 1
+    echo "Thymus: Failed to parse invariants.yml" >&2; return 1
   fi
   echo "$cache"
 }
@@ -152,7 +152,7 @@ import_is_forbidden() {
 }
 
 # --- Build file list ---
-IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".ais")
+IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
 IGNORED_ARGS=()
 for p in "${IGNORED_PATHS[@]}"; do
   IGNORED_ARGS+=(-not -path "*/$p/*" -not -name "$p")

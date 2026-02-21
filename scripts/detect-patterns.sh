@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS detect-patterns.sh
+# Thymus detect-patterns.sh
 # Scans a project directory and outputs structural data as JSON.
 # Usage: bash detect-patterns.sh [project_root]
 # Output: JSON to stdout
 
 PROJECT_ROOT="${1:-$PWD}"
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 # Load ignored paths

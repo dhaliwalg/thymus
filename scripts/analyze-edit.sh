@@ -4,7 +4,7 @@ set -euo pipefail
 # PostToolUse hook: check edited file against invariants
 # never exits with code 2 — warns but doesn't block
 
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 input=$(cat)
@@ -30,13 +30,13 @@ if [ -f "$file_path" ]; then
   [ "$file_size" -gt 512000 ] && exit 0
 fi
 
-AIS_DIR="$PWD/.ais"
-INVARIANTS_YML="$AIS_DIR/invariants.yml"
+THYMUS_DIR="$PWD/.thymus"
+INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
 [ -f "$INVARIANTS_YML" ] || exit 0
 
 PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/ais-cache-${PROJECT_HASH}"
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
 mkdir -p "$CACHE_DIR"
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 [ -f "$SESSION_VIOLATIONS" ] || echo "[]" > "$SESSION_VIOLATIONS"
@@ -44,7 +44,7 @@ SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 # parse invariants.yml to json, cached by mtime
 load_invariants() {
   local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "ais: invariants.yml not found" >&2; return 1; }
+  [ -f "$yml" ] || { echo "thymus: invariants.yml not found" >&2; return 1; }
   if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
     echo "$cache"; return 0
   fi
@@ -93,7 +93,7 @@ def parse(src, dst):
 parse(sys.argv[1], sys.argv[2])
 PYEOF
   if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "ais: failed to parse invariants.yml" >&2; return 1
+    echo "thymus: failed to parse invariants.yml" >&2; return 1
   fi
   echo "$cache"
 }
@@ -264,7 +264,7 @@ done
 echo "[$TIMESTAMP] found ${#violation_lines[@]} violations in $REL_PATH" >> "$DEBUG_LOG"
 
 # calibration: track fix/ignore events for previously-violated rules
-CALIBRATION_FILE="$AIS_DIR/calibration.json"
+CALIBRATION_FILE="$THYMUS_DIR/calibration.json"
 [ -f "$CALIBRATION_FILE" ] || echo '{"rules":{}}' > "$CALIBRATION_FILE"
 
 PREV_RULES=$(jq -r --arg f "$REL_PATH" '[.[] | select(.file == $f) | .rule] | unique[]' "$SESSION_VIOLATIONS" 2>/dev/null || true)
@@ -282,7 +282,7 @@ while IFS= read -r prev_rule; do
 done <<< "${PREV_RULES:-}"
 
 if [ "${#CAL_EVENTS[@]}" -gt 0 ]; then
-  CAL_PY=$(mktemp /tmp/ais-cal-XXXXXX.py)
+  CAL_PY=$(mktemp /tmp/thymus-cal-XXXXXX.py)
   trap 'rm -f "$CAL_PY"' EXIT
   cat > "$CAL_PY" << 'ENDPY'
 import sys, json
@@ -309,7 +309,7 @@ for obj in "${new_violation_objects[@]}"; do
   echo "$updated" > "$SESSION_VIOLATIONS"
 done
 
-msg_body="ais: ${#violation_lines[@]} violation(s) in $REL_PATH\n"
+msg_body="thymus: ${#violation_lines[@]} violation(s) in $REL_PATH\n"
 for line in "${violation_lines[@]}"; do
   msg_body+="  $line\n"
 done

@@ -1,17 +1,17 @@
 ---
 name: baseline
 description: >-
-  Initialize or refresh the AIS architectural baseline for this project.
+  Initialize or refresh the Thymus architectural baseline for this project.
   Run this first in any new project to enable architectural monitoring.
-  Creates .ais/baseline.json with the structural fingerprint and proposes
+  Creates .thymus/baseline.json with the structural fingerprint and proposes
   invariants for user review. Use with --refresh to update after major refactors.
 disable-model-invocation: true
 argument-hint: "[--refresh]"
 ---
 
-# AIS Baseline
+# Thymus Baseline
 
-Follow these steps to initialize AIS for the current project.
+Follow these steps to initialize Thymus for the current project.
 
 ## Steps
 
@@ -54,7 +54,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/templates/default-rules.yml` and select rules releva
 Present a structured summary to the user:
 
 ```
-## AIS Baseline Scan Results
+## Thymus Baseline Scan Results
 
 **Project:** [language] / [framework]
 **Scanned:** [file count] files across [module count] modules
@@ -84,16 +84,16 @@ Review the above. Tell me what to adjust (e.g. "auth isn't a separate module, it
 - If user requests adjustments: apply them to the in-memory data, re-present the affected section, ask again
 - If user says **skip** or **cancel**: abort without writing files
 
-**7. Write `.ais/` files**
+**7. Write `.thymus/` files**
 
-Create the `.ais/` directory if it doesn't exist:
+Create the `.thymus/` directory if it doesn't exist:
 ```bash
-mkdir -p $PWD/.ais/history
+mkdir -p $PWD/.thymus/history
 ```
 
 Write three files:
 
-**`.ais/baseline.json`** — structural fingerprint (JSON from steps 1-3, synthesized):
+**`.thymus/baseline.json`** — structural fingerprint (JSON from steps 1-3, synthesized):
 ```json
 {
   "version": "1.0",
@@ -106,14 +106,14 @@ Write three files:
 }
 ```
 
-**`.ais/invariants.yml`** — user-facing rules (also read by hooks via `load_invariants()`):
+**`.thymus/invariants.yml`** — user-facing rules (also read by hooks via `load_invariants()`):
 ```yaml
 version: "1.0"
 invariants:
   [proposed invariants from step 3-4]
 ```
 
-**`.ais/config.yml`** — default configuration:
+**`.thymus/config.yml`** — default configuration:
 ```yaml
 version: "1.0"
 ignored_paths: [node_modules, dist, .next, .git, coverage]
@@ -125,4 +125,4 @@ language: [detected]
 **8. Confirm**
 
 Tell the user:
-> AIS baseline saved to `.ais/`. [N] invariants active. Run `/ais:health` for a report or `/ais:scan` to check for violations.
+> Thymus baseline saved to `.thymus/`. [N] invariants active. Run `/thymus:health` for a report or `/thymus:scan` to check for violations.

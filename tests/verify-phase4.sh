@@ -41,7 +41,7 @@ check_json() {
 echo "add-invariant.sh:"
 
 TMPDIR_TEST=$(mktemp -d)
-cp "$UNHEALTHY/.ais/invariants.yml" "$TMPDIR_TEST/invariants.yml"
+cp "$UNHEALTHY/.thymus/invariants.yml" "$TMPDIR_TEST/invariants.yml"
 
 NEW_BLOCK='  - id: test-auto-added-rule
     type: boundary
@@ -69,7 +69,7 @@ check "original rule still present after append" "boundary-routes-no-direct-db" 
 
 # Test 4: resulting YAML is parseable by the python3 parser
 # Write parser to temp file to avoid heredoc-in-subshell bash compatibility issues
-PY_PARSER=$(mktemp /tmp/ais-test-parser-XXXXXX.py)
+PY_PARSER=$(mktemp /tmp/thymus-test-parser-XXXXXX.py)
 cat > "$PY_PARSER" << 'ENDPY'
 import sys, re, json
 
@@ -151,14 +151,14 @@ fi
 echo ""
 echo "session-report.sh (CLAUDE.md suggestions):"
 
-# Setup: create a temp AIS dir with a baseline and 3 history snapshots
+# Setup: create a temp Thymus dir with a baseline and 3 history snapshots
 # all containing the same rule violation (to trigger the suggestion threshold)
 TMPDIR_REPORT=$(mktemp -d)
-mkdir -p "$TMPDIR_REPORT/.ais/history"
-echo '{"modules":[],"boundaries":[],"patterns":[],"conventions":[]}' > "$TMPDIR_REPORT/.ais/baseline.json"
+mkdir -p "$TMPDIR_REPORT/.thymus/history"
+echo '{"modules":[],"boundaries":[],"patterns":[],"conventions":[]}' > "$TMPDIR_REPORT/.thymus/baseline.json"
 
 for i in 1 2 3; do
-  cat > "$TMPDIR_REPORT/.ais/history/2026-02-20T00:0${i}:00.json" <<JSON
+  cat > "$TMPDIR_REPORT/.thymus/history/2026-02-20T00:0${i}:00.json" <<JSON
 {
   "timestamp": "2026-02-20T00:0${i}:00",
   "session_id": "sess-${i}",
@@ -171,7 +171,7 @@ done
 
 # Create a session-violations cache (empty — this session had no violations)
 HASH=$(echo "$TMPDIR_REPORT" | md5 -q 2>/dev/null || echo "$TMPDIR_REPORT" | md5sum | cut -d' ' -f1)
-CACHE="/tmp/ais-cache-${HASH}"
+CACHE="/tmp/thymus-cache-${HASH}"
 mkdir -p "$CACHE"
 echo "[]" > "$CACHE/session-violations.json"
 
@@ -216,10 +216,10 @@ fi
 
 # Setup: create a temp project with a baseline
 TMPDIR_REFRESH=$(mktemp -d)
-mkdir -p "$TMPDIR_REFRESH/src/routes" "$TMPDIR_REFRESH/src/models" "$TMPDIR_REFRESH/.ais"
+mkdir -p "$TMPDIR_REFRESH/src/routes" "$TMPDIR_REFRESH/src/models" "$TMPDIR_REFRESH/.thymus"
 
 # Create a baseline that does NOT include "src/services" module
-cat > "$TMPDIR_REFRESH/.ais/baseline.json" <<'BASELINE'
+cat > "$TMPDIR_REFRESH/.thymus/baseline.json" <<'BASELINE'
 {
   "generated_at": "2026-01-01T00:00:00",
   "modules": [
@@ -276,8 +276,8 @@ fi
 
 # Setup: create calibration.json with a rule that has been ignored many times
 TMPDIR_CAL=$(mktemp -d)
-mkdir -p "$TMPDIR_CAL/.ais"
-cat > "$TMPDIR_CAL/.ais/calibration.json" <<'CALIB'
+mkdir -p "$TMPDIR_CAL/.thymus"
+cat > "$TMPDIR_CAL/.thymus/calibration.json" <<'CALIB'
 {
   "rules": {
     "convention-test-colocation": {"fixed": 1, "ignored": 9},

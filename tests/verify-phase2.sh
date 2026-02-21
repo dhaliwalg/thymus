@@ -46,7 +46,7 @@ input=$(jq -n \
 
 output=$(cd "$UNHEALTHY" && echo "$input" | bash "$ROOT/scripts/analyze-edit.sh")
 check_output "detects boundary violation on unhealthy route" "boundary-routes-no-direct-db" "$output"
-check_output "systemMessage contains ais warning" "ais:" "$output"
+check_output "systemMessage contains thymus warning" "thymus:" "$output"
 
 # Build test input for healthy route (no violation)
 input=$(jq -n \

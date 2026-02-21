@@ -91,13 +91,13 @@ echo "generate-report.sh:"
 SCAN_FILE=$(mktemp)
 (cd "$UNHEALTHY" && bash "$ROOT/scripts/scan-project.sh" > "$SCAN_FILE")
 
-REPORT_FILE="$UNHEALTHY/.ais/report.html"
+REPORT_FILE="$UNHEALTHY/.thymus/report.html"
 rm -f "$REPORT_FILE"
 
 # Count snapshots before, call generate-report once, count after
-SNAP_BEFORE=$(find "$UNHEALTHY/.ais/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+SNAP_BEFORE=$(find "$UNHEALTHY/.thymus/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
 REPORT_OUTPUT=$(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" 2>/dev/null)
-SNAP_AFTER=$(find "$UNHEALTHY/.ais/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+SNAP_AFTER=$(find "$UNHEALTHY/.thymus/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
 
 # Test: report file is created
 if [ -f "$REPORT_FILE" ]; then
@@ -109,7 +109,7 @@ else
 fi
 
 # Test: HTML contains expected sections
-if grep -q "AIS Architectural Health" "$REPORT_FILE" 2>/dev/null; then
+if grep -q "Thymus Architectural Health" "$REPORT_FILE" 2>/dev/null; then
   echo "  ✓ report contains title"
   ((passed++)) || true
 else

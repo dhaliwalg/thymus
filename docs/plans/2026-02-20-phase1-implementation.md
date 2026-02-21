@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build the AIS baseline engine — scripts that scan a project's structure and dependencies, an agent that proposes invariants, and a `/ais:baseline` skill that ties it together into a one-shot review flow.
+**Goal:** Build the Thymus baseline engine — scripts that scan a project's structure and dependencies, an agent that proposes invariants, and a `/thymus:baseline` skill that ties it together into a one-shot review flow.
 
-**Architecture:** Two bash scripts produce raw JSON (structure + dependencies). The `invariant-detector` agent synthesizes proposals. The `baseline` skill instructs Claude to run both scripts, invoke the agent, present findings, and write `.ais/` files on user confirmation. No AST parsing — grep/find only.
+**Architecture:** Two bash scripts produce raw JSON (structure + dependencies). The `invariant-detector` agent synthesizes proposals. The `baseline` skill instructs Claude to run both scripts, invoke the agent, present findings, and write `.thymus/` files on user confirmation. No AST parsing — grep/find only.
 
 **Tech Stack:** bash 4+, jq, grep, find. No external dependencies. Test fixtures in `tests/fixtures/`.
 
@@ -196,13 +196,13 @@ Expected: FAIL (script doesn't exist yet).
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS detect-patterns.sh
+# Thymus detect-patterns.sh
 # Scans a project directory and outputs structural data as JSON.
 # Usage: bash detect-patterns.sh [project_root]
 # Output: JSON to stdout
 
 PROJECT_ROOT="${1:-$PWD}"
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 # Load ignored paths from config if available
@@ -362,13 +362,13 @@ Expected: FAIL (script doesn't exist yet).
 #!/usr/bin/env bash
 set -euo pipefail
 
-# AIS scan-dependencies.sh
+# Thymus scan-dependencies.sh
 # Detects language, framework, external deps, and import relationships.
 # Usage: bash scan-dependencies.sh [project_root]
 # Output: JSON to stdout
 
 PROJECT_ROOT="${1:-$PWD}"
-DEBUG_LOG="/tmp/ais-debug.log"
+DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 
 IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build")
@@ -573,7 +573,7 @@ git commit -m "feat: add scripts/scan-dependencies.sh with verification test"
 **Step 1: Write the agent**
 
 ```markdown
-You are the AIS Invariant Detector. Your job is to analyze raw scan data from a codebase and propose architectural invariants that should be enforced.
+You are the Thymus Invariant Detector. Your job is to analyze raw scan data from a codebase and propose architectural invariants that should be enforced.
 
 ## Your role
 
@@ -663,13 +663,13 @@ git commit -m "feat: add agents/invariant-detector.md"
 **Files:**
 - Create: `templates/default-rules.yml`
 
-This is a reference library. The `/ais:baseline` skill instructs Claude to consult it when proposing invariants for known frameworks.
+This is a reference library. The `/thymus:baseline` skill instructs Claude to consult it when proposing invariants for known frameworks.
 
 **Step 1: Write the template**
 
 ```yaml
-# AIS Default Rules Library
-# Claude references this during /ais:baseline to supplement invariant-detector output.
+# Thymus Default Rules Library
+# Claude references this during /thymus:baseline to supplement invariant-detector output.
 # Rules are organized by category. Claude selects relevant sections based on detected framework.
 
 version: "1.0"
@@ -679,7 +679,7 @@ generic:
     type: structure
     severity: error
     description: "No circular module dependencies"
-    note: "Implemented in Phase 3 /ais:scan — placeholder only"
+    note: "Implemented in Phase 3 /thymus:scan — placeholder only"
 
   - id: generic-test-colocation
     type: convention
@@ -803,17 +803,17 @@ Read `skills/baseline/SKILL.md` to see what's there (the Phase 0 stub).
 ---
 name: baseline
 description: >-
-  Initialize or refresh the AIS architectural baseline for this project.
+  Initialize or refresh the Thymus architectural baseline for this project.
   Run this first in any new project to enable architectural monitoring.
-  Creates .ais/baseline.json with the structural fingerprint and proposes
+  Creates .thymus/baseline.json with the structural fingerprint and proposes
   invariants for user review. Use with --refresh to update after major refactors.
 disable-model-invocation: true
 argument-hint: "[--refresh]"
 ---
 
-# AIS Baseline
+# Thymus Baseline
 
-Follow these steps to initialize AIS for the current project.
+Follow these steps to initialize Thymus for the current project.
 
 ## Steps
 
@@ -856,7 +856,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/templates/default-rules.yml` and select rules releva
 Present a structured summary to the user:
 
 ```
-## AIS Baseline Scan Results
+## Thymus Baseline Scan Results
 
 **Project:** [language] / [framework]
 **Scanned:** [file count] files across [module count] modules
@@ -886,16 +886,16 @@ Review the above. Tell me what to adjust (e.g. "auth isn't a separate module, it
 - If user requests adjustments: apply them to the in-memory data, re-present the affected section, ask again
 - If user says **skip** or **cancel**: abort without writing files
 
-**7. Write `.ais/` files**
+**7. Write `.thymus/` files**
 
-Create the `.ais/` directory if it doesn't exist:
+Create the `.thymus/` directory if it doesn't exist:
 ```bash
-mkdir -p $PWD/.ais/history
+mkdir -p $PWD/.thymus/history
 ```
 
 Write three files:
 
-**`.ais/baseline.json`** — structural fingerprint (JSON from steps 1-3, synthesized):
+**`.thymus/baseline.json`** — structural fingerprint (JSON from steps 1-3, synthesized):
 ```json
 {
   "version": "1.0",
@@ -908,14 +908,14 @@ Write three files:
 }
 ```
 
-**`.ais/invariants.yml`** — user-facing rules:
+**`.thymus/invariants.yml`** — user-facing rules:
 ```yaml
 version: "1.0"
 invariants:
   [proposed invariants from step 3-4]
 ```
 
-**`.ais/config.yml`** — default configuration:
+**`.thymus/config.yml`** — default configuration:
 ```yaml
 version: "1.0"
 ignored_paths: [node_modules, dist, .next, .git, coverage]
@@ -927,7 +927,7 @@ language: [detected]
 **8. Confirm**
 
 Tell the user:
-> ✅ AIS baseline saved to `.ais/`. [N] invariants active. Run `/ais:health` for a full report, or `/ais:scan` to check for current violations.
+> ✅ Thymus baseline saved to `.thymus/`. [N] invariants active. Run `/thymus:health` for a full report, or `/thymus:scan` to check for current violations.
 ```
 
 **Step 3: Verify skill name matches directory**
@@ -942,7 +942,7 @@ Expected: `name: baseline`
 
 ```bash
 git add skills/baseline/SKILL.md
-git commit -m "feat: implement /ais:baseline skill with full scan-and-confirm flow"
+git commit -m "feat: implement /thymus:baseline skill with full scan-and-confirm flow"
 ```
 
 ---
@@ -991,7 +991,7 @@ Expected: both complete in < 5 seconds.
 
 ```bash
 git add -A
-git commit -m "feat: Phase 1 complete — baseline engine with scan scripts, invariant-detector agent, and /ais:baseline skill"
+git commit -m "feat: Phase 1 complete — baseline engine with scan scripts, invariant-detector agent, and /thymus:baseline skill"
 ```
 
 ---

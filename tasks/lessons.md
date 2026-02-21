@@ -1,4 +1,4 @@
-# AIS — Lessons Learned
+# Thymus — Lessons Learned
 
 > Accumulated patterns and mistakes to avoid.
 > Updated after every correction or discovered issue.

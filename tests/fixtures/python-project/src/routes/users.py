@@ -1,4 +1,4 @@
-# AIS test fixture — intentional boundary violation
+# Thymus test fixture — intentional boundary violation
 # This route imports directly from db instead of going through a repository
 
 from src.db.client import get_connection  # VIOLATION: should use src/repositories/
