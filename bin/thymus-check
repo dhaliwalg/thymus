@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# thymus-check — Check a single file against invariants
+# Usage: thymus-check <file> [--format json|text]
+# Exit: 0 = no violations, 1 = violations found, 2 = error
+
+# --- Resolve script location (portable, no readlink -f) ---
+SCRIPT="$0"
+while [ -L "$SCRIPT" ]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+  SCRIPT="$(readlink "$SCRIPT")"
+  [[ "$SCRIPT" != /* ]] && SCRIPT="$SCRIPT_DIR/$SCRIPT"
+done
+BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+SCRIPTS_DIR="$(cd "$BIN_DIR/../scripts" && pwd)"
+
+# --- Parse args ---
+FILE=""
+FORMAT=""
+for arg in "$@"; do
+  case "$arg" in
+    --format) : ;;  # next arg is the format value
+    json|text)
+      if [ "${prev_arg:-}" = "--format" ]; then FORMAT="$arg"; fi
+      ;;
+    --format=*) FORMAT="${arg#--format=}" ;;
+    -*) echo "thymus-check: unknown option: $arg" >&2; exit 2 ;;
+    *) [ -z "$FILE" ] && FILE="$arg" ;;
+  esac
+  prev_arg="$arg"
+done
+
+if [ -z "$FILE" ]; then
+  echo "Usage: thymus-check <file> [--format json|text]" >&2
+  exit 2
+fi
+
+# --- Auto-detect format ---
+if [ -z "$FORMAT" ]; then
+  if [ -t 1 ]; then FORMAT="text"; else FORMAT="json"; fi
+fi
+
+# --- Find project root (walk up looking for .thymus/invariants.yml) ---
+find_root() {
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/.thymus/invariants.yml" ]; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+PROJECT_ROOT=$(find_root) || {
+  echo "thymus-check: no .thymus/invariants.yml found (walk from $PWD to /)" >&2
+  exit 2
+}
+
+# --- Resolve file to absolute path ---
+if [[ "$FILE" = /* ]]; then
+  ABS_FILE="$FILE"
+else
+  ABS_FILE="$PWD/$FILE"
+fi
+
+if [ ! -f "$ABS_FILE" ]; then
+  echo "thymus-check: file not found: $FILE" >&2
+  exit 2
+fi
+
+# --- Build hook-style JSON input for analyze-edit.sh ---
+INPUT=$(jq -n --arg file "$ABS_FILE" \
+  '{tool_name:"ThymusCLI",tool_input:{file_path:$file},tool_response:{success:true}}')
+
+# --- Run analyze-edit.sh and capture its internal violations ---
+# analyze-edit.sh writes violations to session-violations.json in the cache dir.
+# We need to capture before/after to extract just the new violations.
+PROJECT_HASH=$(echo "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "$PROJECT_ROOT" | md5sum | cut -d' ' -f1)
+CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
+mkdir -p "$CACHE_DIR"
+SESSION_FILE="$CACHE_DIR/session-violations.json"
+
+# Save current session violations, replace with empty array
+SAVED_VIOLATIONS="[]"
+[ -f "$SESSION_FILE" ] && SAVED_VIOLATIONS=$(cat "$SESSION_FILE")
+echo "[]" > "$SESSION_FILE"
+
+# Run analyze-edit.sh
+HOOK_OUTPUT=$(cd "$PROJECT_ROOT" && echo "$INPUT" | bash "$SCRIPTS_DIR/analyze-edit.sh" 2>/dev/null) || true
+
+# Read new violations (what analyze-edit.sh appended)
+NEW_VIOLATIONS="[]"
+[ -f "$SESSION_FILE" ] && NEW_VIOLATIONS=$(cat "$SESSION_FILE")
+
+# Restore original session violations
+echo "$SAVED_VIOLATIONS" > "$SESSION_FILE"
+
+# --- Translate to public schema ---
+# Internal: {rule, severity, message, file, import?, package?, line?}
+# Public:   {rule_id, severity(warn not warning), message, file, import_path?, line?(int), rule_name, source_module?, target_module?}
+REL_FILE="${ABS_FILE#"$PROJECT_ROOT"/}"
+
+VIOLATIONS=$(echo "$NEW_VIOLATIONS" | jq --arg rel "$REL_FILE" '
+  [ .[] | {
+    file: .file,
+    line: (if .line and .line != "" and .line != "?" then (.line | tonumber) else null end),
+    rule_id: .rule,
+    rule_name: .message,
+    severity: (if .severity == "warning" then "warn" else .severity end),
+    message: .message,
+    source_module: (.file | split("/") | if length > 1 then .[0] + "/" + .[1] else .[0] end),
+    target_module: (if .import then (.import | ltrimstr("../") | split("/")[0]) else null end),
+    import_path: (.import // null)
+  } ]
+')
+
+COUNT=$(echo "$VIOLATIONS" | jq 'length')
+
+# --- Output ---
+if [ "$FORMAT" = "json" ]; then
+  echo "$VIOLATIONS"
+else
+  if [ "$COUNT" -eq 0 ]; then
+    echo "thymus: no violations in $REL_FILE"
+  else
+    echo "thymus: $COUNT violation(s) in $REL_FILE"
+    echo "$VIOLATIONS" | jq -r '.[] |
+      "  \(.severity): \(.file)" +
+      (if .line then ":\(.line)" else "" end) +
+      " — \(.message)" +
+      (if .import_path then " (import: \(.import_path))" else "" end)'
+  fi
+fi
+
+# --- Exit code ---
+if [ "$COUNT" -gt 0 ]; then
+  exit 1
+else
+  exit 0
+fi
