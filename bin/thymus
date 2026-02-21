@@ -44,6 +44,9 @@ fi
 COMMAND="$1"
 shift
 
+# Check for updates (runs in background, max once per 24h)
+bash "$BIN_DIR/../scripts/check-version.sh" &
+
 case "$COMMAND" in
   scan)
     exec "$BIN_DIR/thymus-scan" "$@"
