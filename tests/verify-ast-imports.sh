@@ -211,7 +211,23 @@ check_has "extracts relative from ..models" "models" "$OUT"
 check_not_has "ignores commented import json" "json" "$OUT"
 check_count "exactly 5 python imports" 5 "$OUT"
 
-# --- Test 7: Edge cases ---
+# --- Test 7: Java imports ---
+echo ""
+echo "Java import extraction:"
+
+cat > "$TMPDIR/TestJava.java" << 'EOF'
+import java.util.*;
+import static org.junit.Assert.*;
+import com.example.service.UserService;
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/TestJava.java")
+check_has "extracts wildcard import java.util.*" "java.util.*" "$OUT"
+check_has "extracts static wildcard import org.junit.Assert.*" "org.junit.Assert.*" "$OUT"
+check_has "extracts regular import com.example.service.UserService" "com.example.service.UserService" "$OUT"
+check_count "exactly 3 java imports" 3 "$OUT"
+
+# --- Test 8: Edge cases ---
 echo ""
 echo "Edge cases:"
 
@@ -238,7 +254,7 @@ EOF
 OUT=$(python3 "$EXTRACTOR" "$TMPDIR/only-comments.ts")
 check_empty "file with only comments produces no output" "$OUT"
 
-# --- Test 8: Fixture integration ---
+# --- Test 9: Fixture integration ---
 echo ""
 echo "Fixture integration:"
 

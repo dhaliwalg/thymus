@@ -204,9 +204,29 @@ get_import_frequency() {
 
 # --- cross_module_imports: which top-level dirs import from which ---
 get_cross_module_imports() {
-  # Get top-level source dirs (depth 1 under src/ or project root)
+  local lang="${1:-unknown}"
+
+  if [ "$lang" = "java" ]; then
+    _get_cross_module_imports_java
+    return
+  fi
+
+  # JS/TS/Python/Go: get top-level source dirs (depth 1 under src/ or project root)
   local src_root="$PROJECT_ROOT/src"
   [ -d "$src_root" ] || src_root="$PROJECT_ROOT"
+
+  local grep_pattern sed_pattern
+  case "$lang" in
+    python)
+      grep_pattern='from \.\.[a-z_]+'
+      sed_pattern='s|from \.\.||'
+      ;;
+    *)
+      # JS/TS/Go default
+      grep_pattern="from ['\"\`]\\.\\./[a-z_-]+"
+      sed_pattern='s|\.\./||'
+      ;;
+  esac
 
   local result
   result=$(find "$src_root" -maxdepth 1 -mindepth 1 -type d \
@@ -217,14 +237,92 @@ get_cross_module_imports() {
 
       find "$module_dir" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) \
         "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
-      | ( xargs grep -hoE "from ['\"\`]\.\./[a-z_-]+|import [a-z]+\.[a-z]+\.[a-z]+" 2>/dev/null || true ) \
-      | ( grep -oE "\.\./[a-z_-]+|import [a-z]+\.[a-z]+\.[a-z]+" || true ) \
-      | sed 's|\.\./||; s|import [a-z]*\.||; s|\..*||' \
+      | ( xargs grep -hoE "$grep_pattern" 2>/dev/null || true ) \
+      | ( grep -oE "\.\./[a-z_-]+|from \.\.[a-z_]+" || true ) \
+      | sed "$sed_pattern" \
       | sort -u \
       | while read -r to_module; do
-          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          [ -n "$to_module" ] && echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
         done
     done || true)
+  if [ -n "$result" ]; then
+    echo "$result" | jq -s .
+  else
+    echo "[]"
+  fi
+}
+
+_get_cross_module_imports_java() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local extractor="$script_dir/extract-imports.py"
+
+  # Find the base package directory: deepest common ancestor of all .java files
+  # For standard Maven/Gradle layout: src/main/java/com/example/
+  local java_root=""
+  if [ -d "$PROJECT_ROOT/src/main/java" ]; then
+    # Find base package dir: first directory under src/main/java that contains subdirs with .java files
+    java_root=$(find "$PROJECT_ROOT/src/main/java" -name "*.java" -type f 2>/dev/null | head -1)
+    if [ -n "$java_root" ]; then
+      # Walk up from the first .java file to find the base package (parent of top-level packages)
+      java_root=$(dirname "$java_root")
+      # Keep going up while sibling dirs don't contain .java files at the same level
+      # The base package is the dir whose children are the top-level packages (controller, service, etc.)
+      local parent
+      parent=$(dirname "$java_root")
+      while [ "$parent" != "$PROJECT_ROOT/src/main/java" ] && [ "$parent" != "/" ]; do
+        # Check if parent has multiple subdirs with .java files
+        local subdir_count
+        subdir_count=$(find "$parent" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$subdir_count" -gt 1 ]; then
+          java_root="$parent"
+          break
+        fi
+        java_root="$parent"
+        parent=$(dirname "$parent")
+      done
+    fi
+  fi
+
+  if [ -z "$java_root" ] || [ ! -d "$java_root" ]; then
+    echo "[]"
+    return
+  fi
+
+  # Get the base package name from the directory structure
+  # e.g., src/main/java/com/example -> com.example
+  local java_base="${java_root#$PROJECT_ROOT/src/main/java/}"
+  local base_package
+  base_package=$(echo "$java_base" | tr '/' '.')
+
+  # Enumerate top-level packages (controller, service, repository, model, etc.)
+  local top_level_dirs
+  top_level_dirs=$(find "$java_root" -maxdepth 1 -mindepth 1 -type d 2>/dev/null)
+
+  local result=""
+  for module_dir in $top_level_dirs; do
+    local from_module
+    from_module=$(basename "$module_dir")
+
+    # Extract imports from all .java files in this module
+    find "$module_dir" -name "*.java" -type f 2>/dev/null | while read -r java_file; do
+      python3 "$extractor" "$java_file" 2>/dev/null
+    done | while read -r imp; do
+      # Check if the import starts with our base package
+      if echo "$imp" | grep -q "^${base_package}\."; then
+        # Extract the sub-package (first segment after base package)
+        local sub_package
+        sub_package=$(echo "$imp" | sed "s|^${base_package}\.||" | cut -d. -f1)
+        if [ -n "$sub_package" ] && [ "$sub_package" != "$from_module" ]; then
+          echo "{\"from\":\"$from_module\",\"to\":\"$sub_package\"}"
+        fi
+      fi
+    done
+  done | sort -u > /tmp/thymus-java-xmod-$$.tmp
+
+  result=$(cat /tmp/thymus-java-xmod-$$.tmp 2>/dev/null || true)
+  rm -f /tmp/thymus-java-xmod-$$.tmp
+
   if [ -n "$result" ]; then
     echo "$result" | jq -s .
   else

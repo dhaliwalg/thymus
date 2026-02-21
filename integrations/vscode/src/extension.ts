@@ -204,7 +204,7 @@ function scanWorkspace(): void {
   if (!workspaceRoot) { return; }
 
   // thymus-check is for single files; for workspace scan, use thymus-scan
-  const scanBinary = thymusBinary.replace('thymus-check', 'thymus-scan');
+  const scanBinary = join(dirname(thymusBinary), 'thymus-scan');
 
   vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
