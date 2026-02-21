@@ -23,7 +23,8 @@
       --accent: #89b4fa;
       --font-display: 'Sora', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
-      --max-w: 680px;
+      --max-w: 1060px;
+      --prose-w: 680px;
       --px: clamp(1.5rem, 5vw, 2rem);
     }
 
@@ -47,6 +48,18 @@
       max-width: var(--max-w);
       margin: 0 auto;
       padding: 0 var(--px);
+    }
+
+    .prose {
+      max-width: var(--prose-w);
+      margin-left: 0;
+      margin-right: 0;
+    }
+
+    .prose-center {
+      max-width: var(--prose-w);
+      margin-left: auto;
+      margin-right: auto;
     }
 
     /* ---- Hero ---- */
@@ -110,9 +123,12 @@
     /* ---- Section rhythm ---- */
 
     .problem,
+    .get-started,
     .how-it-works,
     .works-everywhere,
-    .enforces {
+    .language-support,
+    .enforces,
+    .rule-example {
       padding-bottom: clamp(4rem, 10vw, 7rem);
     }
 
@@ -124,6 +140,78 @@
       margin-bottom: 1.5rem;
       letter-spacing: -0.03em;
       line-height: 1.15;
+    }
+
+    /* ---- Get Started — Tabbed Install Picker ---- */
+
+    .install-picker {
+      background: var(--surface);
+      border: 1px solid rgba(137, 180, 250, 0.15);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .tab-bar {
+      display: flex;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(137, 180, 250, 0.1);
+    }
+
+    .tab-bar button {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: none;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+    }
+
+    .tab-bar button:hover {
+      color: var(--text);
+    }
+
+    .tab-bar button.active {
+      color: var(--accent);
+    }
+
+    .tab-bar button.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--accent);
+    }
+
+    .tab-panel {
+      padding: 1.5rem 1.75rem;
+    }
+
+    .tab-panel pre {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      line-height: 1.7;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .tab-panel pre .comment {
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    .tab-panel .note {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      margin-top: 1.25rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(205, 214, 244, 0.06);
+      line-height: 1.6;
     }
 
     /* ---- Problem ---- */
@@ -185,6 +273,14 @@
 
     /* ---- Works Everywhere ---- */
 
+    .works-everywhere .section-intro {
+      font-size: 0.9rem;
+      color: var(--text);
+      opacity: 0.6;
+      line-height: 1.75;
+      margin-bottom: 1.75rem;
+    }
+
     .integrations {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -210,13 +306,31 @@
       line-height: 1.6;
     }
 
-    .integration code {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 0.72rem;
-      color: var(--accent);
-      margin-top: 0.65rem;
-      line-height: 1.5;
+    /* ---- Language Support ---- */
+
+    .languages {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .language {
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 1.25rem 1.4rem;
+    }
+
+    .language h3 {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 0.3rem;
+    }
+
+    .language p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.55;
     }
 
     /* ---- What It Enforces ---- */
@@ -254,11 +368,50 @@
       line-height: 1.5;
     }
 
+    /* ---- Rule Example ---- */
+
+    .rule-example .section-intro {
+      font-size: 0.9rem;
+      color: var(--text);
+      opacity: 0.6;
+      line-height: 1.75;
+      margin-bottom: 1.25rem;
+    }
+
+    .rule-example pre {
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 1.25rem 1.4rem;
+      overflow-x: auto;
+    }
+
+    .rule-example pre code {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      white-space: pre;
+    }
+
+    .rule-example pre .comment {
+      color: var(--text-muted);
+      opacity: 0.5;
+    }
+
+    .rule-example pre .key {
+      color: var(--accent);
+    }
+
+    .rule-example pre .value {
+      color: var(--text);
+      opacity: 0.7;
+    }
+
     /* ---- Footer ---- */
 
     footer {
       text-align: center;
-      max-width: var(--max-w);
+      max-width: var(--prose-w);
       margin: 0 auto;
       padding: clamp(2rem, 5vw, 3rem) var(--px) clamp(3rem, 8vw, 5rem);
       border-top: 1px solid rgba(205, 214, 244, 0.06);
@@ -273,6 +426,14 @@
       font-family: var(--font-mono);
       color: var(--text-muted);
       opacity: 0.7;
+      margin-bottom: 0.35rem;
+    }
+
+    footer .editors {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      opacity: 0.5;
       margin-bottom: 1rem;
     }
 
@@ -301,21 +462,27 @@
     }
 
     .hero,
+    .get-started,
     .problem,
     .how-it-works,
     .works-everywhere,
+    .language-support,
     .enforces,
+    .rule-example,
     footer {
       opacity: 0;
       animation: fadeUp 0.6s ease-out forwards;
     }
 
     .hero { animation-delay: 0s; }
-    .problem { animation-delay: 0.1s; }
-    .how-it-works { animation-delay: 0.2s; }
-    .works-everywhere { animation-delay: 0.3s; }
-    .enforces { animation-delay: 0.4s; }
-    footer { animation-delay: 0.5s; }
+    .get-started { animation-delay: 0.1s; }
+    .problem { animation-delay: 0.2s; }
+    .how-it-works { animation-delay: 0.3s; }
+    .works-everywhere { animation-delay: 0.4s; }
+    .language-support { animation-delay: 0.5s; }
+    .enforces { animation-delay: 0.6s; }
+    .rule-example { animation-delay: 0.7s; }
+    footer { animation-delay: 0.8s; }
   </style>
 </head>
 <body>
@@ -327,9 +494,94 @@
       <a href="https://github.com/dhaliwalg/thymus" class="gh-link">View on GitHub</a>
     </section>
 
+    <section class="get-started">
+      <h2 class="section-title">Get Started</h2>
+      <div class="install-picker">
+        <div class="tab-bar" role="tablist">
+          <button class="active" data-tab="claude-code" role="tab" aria-selected="true">Claude Code</button>
+          <button data-tab="vscode" role="tab" aria-selected="false">VS Code</button>
+          <button data-tab="cli" role="tab" aria-selected="false">CLI</button>
+          <button data-tab="pre-commit" role="tab" aria-selected="false">Pre-Commit</button>
+          <button data-tab="github-actions" role="tab" aria-selected="false">GitHub Actions</button>
+        </div>
+        <div class="tab-panel" data-panel="claude-code">
+          <pre><span class="comment"># Register the marketplace (one-time)</span>
+/plugin marketplace add dhaliwalg/thymus
+
+<span class="comment"># Install</span>
+/plugin install thymus@dhaliwalg/thymus
+
+<span class="comment"># Generate your baseline</span>
+/thymus:baseline
+
+<span class="comment"># Teach your first rule</span>
+/thymus:learn "services must not import from controllers"</pre>
+          <p class="note">Every file edit is now checked against your rules.</p>
+        </div>
+        <div class="tab-panel" data-panel="vscode" hidden>
+          <pre><span class="comment"># Clone and build the extension</span>
+git clone https://github.com/dhaliwalg/thymus.git
+cd thymus/integrations/vscode
+npm install
+npm run compile
+npx @vscode/vsce package
+
+<span class="comment"># Install the .vsix in your editor</span>
+code --install-extension thymus-0.1.0.vsix      <span class="comment"># VS Code</span>
+cursor --install-extension thymus-0.1.0.vsix    <span class="comment"># Cursor</span>
+windsurf --install-extension thymus-0.1.0.vsix  <span class="comment"># Windsurf</span></pre>
+          <p class="note">Activates automatically when .thymus/invariants.yml exists. Violations appear as squiggly underlines on save.<br><br>Your project needs a .thymus/ directory with rules. Set it up via Claude Code (/thymus:baseline) or run bin/thymus init from the CLI.</p>
+        </div>
+        <div class="tab-panel" data-panel="cli" hidden>
+          <pre>git clone https://github.com/dhaliwalg/thymus.git
+export PATH="$PATH:$(pwd)/thymus/bin"
+
+thymus scan                  <span class="comment"># full project</span>
+thymus scan --diff           <span class="comment"># staged files only</span>
+thymus check src/file.ts     <span class="comment"># single file</span>
+thymus init                  <span class="comment"># set up .thymus/ in a new project</span></pre>
+          <p class="note">Requires bash 4.0+, python3, jq, git.</p>
+        </div>
+        <div class="tab-panel" data-panel="pre-commit" hidden>
+          <pre><span class="comment"># Symlink the hook (run from your project root)</span>
+ln -sf /path/to/thymus/integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
+
+<span class="comment"># Or with the pre-commit framework — add to .pre-commit-config.yaml:</span>
+- repo: local
+  hooks:
+    - id: thymus
+      name: thymus architectural lint
+      entry: bin/thymus scan --diff --format text
+      language: script
+      pass_filenames: false</pre>
+          <p class="note">Blocks commits with error-severity violations. Warnings pass through. Bypass with --no-verify.</p>
+        </div>
+        <div class="tab-panel" data-panel="github-actions" hidden>
+          <pre><span class="comment"># .github/workflows/thymus.yml</span>
+name: Architectural Lint
+on: [pull_request]
+jobs:
+  thymus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Clone Thymus
+        run: git clone https://github.com/dhaliwalg/thymus.git /tmp/thymus
+      - name: Run Thymus
+        run: |
+          /tmp/thymus/bin/thymus scan --diff --format json | jq -r '.[] |
+            if .severity == "error" then "::error file=\(.file),line=\(.line)::\(.message)"
+            else "::warning file=\(.file),line=\(.line)::\(.message)"
+            end'</pre>
+        </div>
+      </div>
+    </section>
+
     <section class="problem">
       <h2 class="section-title">The Problem</h2>
-      <p>AI tools write great code. But they don't remember your architecture between sessions. Over days, patterns drift &mdash; boundaries get crossed, conventions break, dependencies leak where they shouldn't. By the time you notice, the debt has compounded.</p>
+      <p class="prose">AI tools write great code. But they don't remember your architecture between sessions. Over days, patterns drift &mdash; boundaries get crossed, conventions break, dependencies leak where they shouldn't. By the time you notice, the debt has compounded.</p>
     </section>
 
     <section class="how-it-works">
@@ -345,19 +597,26 @@
         <li>
           <span class="step-num">2</span>
           <div>
+            <h3><code>/thymus:learn</code></h3>
+            <p>Teach rules in plain English. "Controllers must not import from the database layer" becomes a structured YAML invariant. No regex, no config syntax to memorize.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <div>
             <h3>Every edit, automatically</h3>
             <p>A PostToolUse hook checks each file change against your rules in under two seconds. Warns Claude immediately if something drifts.</p>
           </div>
         </li>
         <li>
-          <span class="step-num">3</span>
+          <span class="step-num">4</span>
           <div>
             <h3><code>/thymus:scan</code></h3>
             <p>Full-project scan on demand. Catches violations the hooks might miss.</p>
           </div>
         </li>
         <li>
-          <span class="step-num">4</span>
+          <span class="step-num">5</span>
           <div>
             <h3><code>/thymus:health</code></h3>
             <p>Generates an HTML health report with score, trend sparklines, and debt projections.</p>
@@ -368,36 +627,57 @@
 
     <section class="works-everywhere">
       <h2 class="section-title">Works Everywhere</h2>
+      <p class="section-intro prose">Rules defined once, enforced regardless of which tool your team uses. Claude Code is where you author rules. Everything else is where they get enforced &mdash; no AI tooling required.</p>
       <div class="integrations">
         <div class="integration">
           <h3>CLI</h3>
-          <p>Scan any project from the terminal. Check single files or the entire codebase.</p>
-          <code>bin/thymus scan --diff</code>
+          <p>Scan from the terminal. Single files, full project, or staged changes.</p>
         </div>
         <div class="integration">
           <h3>VS Code / Cursor / Windsurf</h3>
-          <p>Violations appear as squiggly underlines on save. Works with any editor that supports VS Code extensions.</p>
-          <code>Thymus: Scan Workspace</code>
+          <p>Violations show as inline squiggly underlines on save.</p>
         </div>
         <div class="integration">
           <h3>Git Pre-Commit</h3>
-          <p>Blocks commits with error-severity violations. Warnings pass through. One symlink to install.</p>
-          <code>ln -sf ...thymus-pre-commit .git/hooks/pre-commit</code>
+          <p>Blocks commits with boundary violations. One symlink to install.</p>
         </div>
         <div class="integration">
           <h3>GitHub Actions</h3>
-          <p>Annotates PRs with inline violation comments. Fails the check on errors, warns on the rest.</p>
-          <code>uses: ./integrations/github-actions</code>
+          <p>Annotates PRs with inline violation comments.</p>
         </div>
         <div class="integration">
           <h3>Claude Code</h3>
-          <p>The original. Hooks into every edit, session start, and session end. Zero-config after baseline.</p>
-          <code>/plugin install thymus</code>
+          <p>The full experience &mdash; real-time hooks, natural language rules, health reports.</p>
         </div>
         <div class="integration">
           <h3>JSON API</h3>
-          <p>All tools output a documented JSON schema. Build your own integrations for any editor or CI system.</p>
-          <code>bin/thymus check file.ts --format json</code>
+          <p>Documented violation schema for building custom integrations.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="language-support">
+      <h2 class="section-title">Language Support</h2>
+      <div class="languages">
+        <div class="language">
+          <h3>JavaScript / TypeScript</h3>
+          <p>AST-aware state machine &mdash; handles comments, strings, template literals, regex</p>
+        </div>
+        <div class="language">
+          <h3>Python</h3>
+          <p>Full AST via stdlib ast module</p>
+        </div>
+        <div class="language">
+          <h3>Go</h3>
+          <p>Comment-aware &mdash; strips //, /* */, backtick raw strings</p>
+        </div>
+        <div class="language">
+          <h3>Rust</h3>
+          <p>Comment-aware &mdash; handles nested /* */, raw strings with r#"..."#</p>
+        </div>
+        <div class="language">
+          <h3>Java</h3>
+          <p>Comment-aware &mdash; handles text blocks ("""...""")</p>
         </div>
       </div>
     </section>
@@ -423,12 +703,50 @@
         </div>
       </div>
     </section>
+
+    <section class="rule-example">
+      <h2 class="section-title">Rule Example</h2>
+      <p class="section-intro prose">Rules are human-readable YAML. Edit them by hand or let <code style="font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent);">/thymus:learn</code> write them for you.</p>
+      <pre><code><span class="comment"># .thymus/invariants.yml</span>
+- <span class="key">id</span>: <span class="value">boundary-routes-no-db</span>
+  <span class="key">type</span>: <span class="value">boundary</span>
+  <span class="key">severity</span>: <span class="value">error</span>
+  <span class="key">description</span>: <span class="value">"Route handlers must not import from the database layer"</span>
+  <span class="key">source_glob</span>: <span class="value">"src/routes/**"</span>
+  <span class="key">forbidden_imports</span>:
+    - <span class="value">"src/db/**"</span>
+
+- <span class="key">id</span>: <span class="value">pattern-no-raw-sql</span>
+  <span class="key">type</span>: <span class="value">pattern</span>
+  <span class="key">severity</span>: <span class="value">error</span>
+  <span class="key">description</span>: <span class="value">"No raw SQL outside the db module"</span>
+  <span class="key">forbidden_pattern</span>: <span class="value">"(SELECT|INSERT|UPDATE|DELETE)\\s+"</span>
+  <span class="key">scope_glob</span>: <span class="value">"src/**"</span>
+  <span class="key">scope_glob_exclude</span>:
+    - <span class="value">"src/db/**"</span></code></pre>
+    </section>
   </main>
 
   <footer>
-    <p class="zero-deps">Zero dependencies. Bash + jq. Works in every editor.</p>
+    <p class="zero-deps">Zero dependencies. Bash + Python + jq.</p>
+    <p class="editors">Claude Code &middot; VS Code &middot; Cursor &middot; Windsurf &middot; Git hooks &middot; GitHub Actions &middot; Any editor.</p>
     <a href="https://github.com/dhaliwalg/thymus" class="gh-link">GitHub</a>
     <p class="credit">Built by Gurjit Dhaliwal</p>
   </footer>
+
+  <script>
+    document.querySelectorAll('[data-tab]').forEach(function(tab) {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('[data-tab]').forEach(function(t) {
+          t.classList.remove('active');
+          t.setAttribute('aria-selected', 'false');
+        });
+        document.querySelectorAll('[data-panel]').forEach(function(p) { p.hidden = true; });
+        tab.classList.add('active');
+        tab.setAttribute('aria-selected', 'true');
+        document.querySelector('[data-panel="' + tab.dataset.tab + '"]').hidden = false;
+      });
+    });
+  </script>
 </body>
 </html>
