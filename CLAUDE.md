@@ -29,7 +29,6 @@ architectural-immune-system/
 │   └── configure/SKILL.md
 ├── agents/
 │   ├── invariant-detector.md
-│   ├── violation-analyzer.md
 │   └── debt-projector.md
 ├── hooks/
 │   └── hooks.json
@@ -41,14 +40,12 @@ architectural-immune-system/
 │   ├── detect-patterns.sh       # Skill: called by /ais:baseline for pattern discovery
 │   └── generate-report.sh       # Skill: called by /ais:health for HTML report
 ├── templates/
-│   ├── invariants.yml
-│   ├── report.html
 │   └── default-rules.yml
 ├── tests/                       # Test fixtures and verification scripts
 │   ├── fixtures/
 │   │   ├── healthy-project/
 │   │   └── unhealthy-project/
-│   └── verify.sh
+│   └── verify-*.sh              # Per-phase verification scripts
 ├── tasks/
 │   ├── todo.md
 │   └── lessons.md
@@ -364,12 +361,14 @@ Maintain two test projects in `tests/fixtures/`:
 - `healthy-project/` — passes all default invariants
 - `unhealthy-project/` — has known violations (circular deps, boundary violations, missing tests)
 
-### Verification script
-`tests/verify.sh` runs the full test suite:
+### Verification scripts
+Per-phase test scripts in `tests/`:
 ```bash
-#!/usr/bin/env bash
-# Runs AIS against both fixtures and validates output
-# Exit 0 if all tests pass, exit 1 with details on failure
+tests/verify-phase2.sh     # PostToolUse + session-report hooks
+tests/verify-phase3.sh     # scan-project + generate-report
+tests/verify-phase4.sh     # learn, refresh, calibration
+tests/verify-phase5.sh     # language detection, edge cases
+tests/verify-*.sh          # Additional per-script verifiers
 ```
 
 ---

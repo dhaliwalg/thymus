@@ -31,11 +31,18 @@ echo "[$TIMESTAMP] session-report: $total total, $errors errors, $warnings warni
 
 mkdir -p "$AIS_DIR/history"
 SNAPSHOT_FILE="$AIS_DIR/history/${TIMESTAMP//:/-}.json"
+
+# Compute health score matching generate-report.sh formula
+unique_error_rules=$(jq '[.[] | select(.severity=="error") | .rule] | unique | length' "$SESSION_VIOLATIONS")
+unique_warning_rules=$(jq '[.[] | select(.severity=="warning") | .rule] | unique | length' "$SESSION_VIOLATIONS")
+score=$(echo "$unique_error_rules $unique_warning_rules" | awk '{s=100-$1*10-$2*3; print (s<0?0:s)}')
+
 jq -n \
+  --argjson score "$score" \
   --arg ts "$TIMESTAMP" \
   --arg sid "$session_id" \
   --argjson violations "$(cat "$SESSION_VIOLATIONS")" \
-  '{timestamp: $ts, session_id: $sid, violations: $violations}' \
+  '{score: $score, timestamp: $ts, session_id: $sid, violations: $violations}' \
   > "$SNAPSHOT_FILE"
 
 if [ "$total" -eq 0 ]; then

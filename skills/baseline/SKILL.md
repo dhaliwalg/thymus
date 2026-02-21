@@ -106,31 +106,12 @@ Write three files:
 }
 ```
 
-**`.ais/invariants.yml`** — user-facing rules:
+**`.ais/invariants.yml`** — user-facing rules (also read by hooks via `load_invariants()`):
 ```yaml
 version: "1.0"
 invariants:
   [proposed invariants from step 3-4]
 ```
-
-**`.ais/invariants.json`** — machine-readable copy for hooks (jq-parseable, same invariants as the YAML):
-```json
-{
-  "version": "1.0",
-  "invariants": [
-    {
-      "id": "...",
-      "type": "boundary|convention|pattern|structure|dependency",
-      "severity": "error|warning|info",
-      "description": "...",
-      "source_glob": "src/routes/**",
-      "forbidden_imports": ["src/db/**", "prisma"],
-      "allowed_imports": ["src/repositories/**"]
-    }
-  ]
-}
-```
-Omit fields not applicable to each invariant type. This file is read by `analyze-edit.sh` on every edit — keep it lean.
 
 **`.ais/config.yml`** — default configuration:
 ```yaml

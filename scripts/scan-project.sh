@@ -161,7 +161,12 @@ done
 declare -a FILES=()
 if $DIFF_MODE; then
   while IFS= read -r f; do
-    [ -n "$f" ] && FILES+=("$f")
+    [ -n "$f" ] || continue
+    # If scope is set, only include diff files under that path
+    if [ -n "$SCOPE" ] && [[ ! "$f" == "$SCOPE"* ]]; then
+      continue
+    fi
+    FILES+=("$f")
   done < <(git diff --name-only HEAD 2>/dev/null | grep -v '^$' || true)
 else
   SCAN_ROOT="$PWD"

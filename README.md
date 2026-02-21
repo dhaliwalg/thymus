@@ -187,7 +187,7 @@ language: typescript   # auto-detected; override if needed
 ## FAQ
 
 **A rule keeps firing but I always fix it. Can Thymus adjust automatically?**
-Thymus tracks this in `.ais/calibration.json`. After enough data points, run `bash ${CLAUDE_PLUGIN_ROOT}/scripts/calibrate-severity.sh` to get downgrade recommendations.
+Thymus tracks this in `.ais/calibration.json`. After enough data points, run `/ais:configure` or manually run `bash scripts/calibrate-severity.sh` from the plugin directory to get downgrade recommendations.
 
 **I refactored and the baseline is stale.**
 Run `/ais:baseline --refresh`.

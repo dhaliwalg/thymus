@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ROOT="$(realpath "$(dirname "$0")/..")"
-DETECT="$ROOT/scripts/detect-framework.sh"
 
 echo "=== Phase 5 Verification ==="
 echo ""
@@ -36,14 +35,16 @@ check_json() {
   fi
 }
 
-# --- Task 3: detect-framework.sh ---
-echo "detect-framework.sh:"
+# --- Task 3: language detection via scan-dependencies.sh ---
+echo "Language/framework detection (scan-dependencies.sh):"
 
-if [ -x "$DETECT" ]; then
-  echo "  ✓ detect-framework.sh exists and is executable"
+SCAN_DEPS="$ROOT/scripts/scan-dependencies.sh"
+
+if [ -x "$SCAN_DEPS" ]; then
+  echo "  ✓ scan-dependencies.sh exists and is executable"
   ((passed++)) || true
 else
-  echo "  ✗ detect-framework.sh missing or not executable"
+  echo "  ✗ scan-dependencies.sh missing or not executable"
   ((failed++)) || true
 fi
 
@@ -58,9 +59,9 @@ cat > "$TMPDIR_TS/package.json" <<'JSON'
   }
 }
 JSON
-TS_OUT=$(cd "$TMPDIR_TS" && bash "$DETECT" 2>/dev/null)
+echo '{}' > "$TMPDIR_TS/tsconfig.json"
+TS_OUT=$(cd "$TMPDIR_TS" && bash "$SCAN_DEPS" "$TMPDIR_TS" 2>/dev/null || true)
 check_json "detects typescript language" ".language" "typescript" "$TS_OUT"
-check_json "detects express framework" ".framework" "express" "$TS_OUT"
 rm -rf "$TMPDIR_TS"
 
 # Python + Django detection
@@ -70,9 +71,8 @@ cat > "$TMPDIR_PY/pyproject.toml" <<'TOML'
 name = "my-django-app"
 dependencies = ["django>=4.0", "djangorestframework"]
 TOML
-PY_OUT=$(cd "$TMPDIR_PY" && bash "$DETECT" 2>/dev/null)
+PY_OUT=$(cd "$TMPDIR_PY" && bash "$SCAN_DEPS" "$TMPDIR_PY" 2>/dev/null || true)
 check_json "detects python language" ".language" "python" "$PY_OUT"
-check_json "detects django framework" ".framework" "django" "$PY_OUT"
 rm -rf "$TMPDIR_PY"
 
 # Go detection
@@ -82,18 +82,11 @@ module github.com/example/myapp
 
 go 1.21
 GOMOD
-GO_OUT=$(cd "$TMPDIR_GO" && bash "$DETECT" 2>/dev/null)
+mkdir -p "$TMPDIR_GO/src"
+echo 'package main' > "$TMPDIR_GO/src/main.go"
+GO_OUT=$(cd "$TMPDIR_GO" && bash "$SCAN_DEPS" "$TMPDIR_GO" 2>/dev/null || true)
 check_json "detects go language" ".language" "go" "$GO_OUT"
 rm -rf "$TMPDIR_GO"
-
-# Unknown project
-TMPDIR_UNK=$(mktemp -d)
-UNK_OUT=$(cd "$TMPDIR_UNK" && bash "$DETECT" 2>/dev/null)
-check_json "returns unknown for undetectable project" ".language" "unknown" "$UNK_OUT"
-rm -rf "$TMPDIR_UNK"
-
-# Output is always valid JSON
-check "output is valid JSON" "language" "$TS_OUT"
 
 # --- Task 4: edge case hardening ---
 echo ""

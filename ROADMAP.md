@@ -26,7 +26,6 @@ architectural-immune-system/
 │   └── configure/SKILL.md           # /ais:configure — Edit rules & thresholds
 ├── agents/
 │   ├── invariant-detector.md        # Discovers implicit patterns in codebase
-│   ├── violation-analyzer.md        # Analyzes a specific violation in depth
 │   └── debt-projector.md            # Projects tech debt trajectory from trends
 ├── hooks/
 │   └── hooks.json                   # PostToolUse + Stop + SessionStart hooks
@@ -38,8 +37,6 @@ architectural-immune-system/
 │   ├── detect-patterns.sh           # AST-lite pattern detection
 │   └── generate-report.sh           # HTML health report generator
 ├── templates/
-│   ├── invariants.yml               # User-editable invariant definitions
-│   ├── report.html                  # Health report template
 │   └── default-rules.yml            # Sensible defaults per language/framework
 ├── README.md
 └── LICENSE

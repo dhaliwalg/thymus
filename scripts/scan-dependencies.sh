@@ -92,8 +92,8 @@ get_external_deps() {
     fi
   elif [ "$lang" = "go" ]; then
     if [ -f "$PROJECT_ROOT/go.mod" ]; then
-      grep '^require' -A 100 "$PROJECT_ROOT/go.mod" | \
-        grep -oE '[a-z0-9.-]+/[a-z0-9./-]+' | jq -R . | jq -s .
+      { grep '^require' -A 100 "$PROJECT_ROOT/go.mod" 2>/dev/null || true; } | \
+        { grep -oE '[a-z0-9.-]+/[a-z0-9./-]+' || true; } | jq -R . | jq -s .
       return
     fi
   fi
@@ -121,14 +121,19 @@ get_import_frequency() {
       ;;
   esac
 
-  find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
+  local result
+  result=$(find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
     "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
   | ( xargs grep -hoE "$pattern" 2>/dev/null || true ) \
   | sed "s/from ['\"]//" | sed "s/['\"]$//" \
   | sort | uniq -c | sort -rn \
   | head -20 \
-  | awk '{print "{\"path\":\""$2"\",\"count\":"$1"}"}' \
-  | jq -s .
+  | awk '{print "{\"path\":\""$2"\",\"count\":"$1"}"}' || true)
+  if [ -n "$result" ]; then
+    echo "$result" | jq -s .
+  else
+    echo "[]"
+  fi
 }
 
 # --- cross_module_imports: which top-level dirs import from which ---
@@ -137,8 +142,9 @@ get_cross_module_imports() {
   local src_root="$PROJECT_ROOT/src"
   [ -d "$src_root" ] || src_root="$PROJECT_ROOT"
 
-  find "$src_root" -maxdepth 1 -mindepth 1 -type d \
-    "${IGNORED_FIND_ARGS[@]}" \
+  local result
+  result=$(find "$src_root" -maxdepth 1 -mindepth 1 -type d \
+    "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
   | while read -r module_dir; do
       local from_module
       from_module=$(basename "$module_dir")
@@ -151,8 +157,12 @@ get_cross_module_imports() {
       | while read -r to_module; do
           echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
         done
-    done \
-  | jq -s .
+    done || true)
+  if [ -n "$result" ]; then
+    echo "$result" | jq -s .
+  else
+    echo "[]"
+  fi
 }
 
 # --- Assemble output ---
