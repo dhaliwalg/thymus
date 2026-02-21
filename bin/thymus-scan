@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# thymus-scan — Scan project or staged files against invariants
+# Usage: thymus-scan [--diff] [--files file1 file2 ...] [--format json|text]
+# Exit: 0 = no violations, 1 = violations found, 2 = error
+
+# --- Resolve script location (portable, no readlink -f) ---
+SCRIPT="$0"
+while [ -L "$SCRIPT" ]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+  SCRIPT="$(readlink "$SCRIPT")"
+  [[ "$SCRIPT" != /* ]] && SCRIPT="$SCRIPT_DIR/$SCRIPT"
+done
+BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+SCRIPTS_DIR="$(cd "$BIN_DIR/../scripts" && pwd)"
+
+# --- Parse args ---
+DIFF_MODE=false
+FORMAT=""
+FILES=()
+PARSING_FILES=false
+prev_arg=""
+for arg in "$@"; do
+  if $PARSING_FILES; then
+    case "$arg" in
+      --*) PARSING_FILES=false ;;  # new flag ends --files list
+      *) FILES+=("$arg"); continue ;;
+    esac
+  fi
+  case "$arg" in
+    --diff) DIFF_MODE=true ;;
+    --files) PARSING_FILES=true ;;
+    --format) : ;;
+    json|text)
+      if [ "${prev_arg:-}" = "--format" ]; then FORMAT="$arg"; fi
+      ;;
+    --format=*) FORMAT="${arg#--format=}" ;;
+    -*) echo "thymus-scan: unknown option: $arg" >&2; exit 2 ;;
+  esac
+  prev_arg="$arg"
+done
+
+# --- Auto-detect format ---
+if [ -z "$FORMAT" ]; then
+  if [ -t 1 ]; then FORMAT="text"; else FORMAT="json"; fi
+fi
+
+# --- Find project root ---
+find_root() {
+  local dir="$PWD"
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/.thymus/invariants.yml" ]; then
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+  return 1
+}
+
+PROJECT_ROOT=$(find_root) || {
+  echo "thymus-scan: no .thymus/invariants.yml found" >&2
+  exit 2
+}
+
+# --- Build scan args ---
+
+if $DIFF_MODE; then
+  # Build file list from staged files
+  STAGED_FILES=$(cd "$PROJECT_ROOT" && git diff --cached --name-only 2>/dev/null || true)
+  if [ -z "$STAGED_FILES" ]; then
+    if [ "$FORMAT" = "json" ]; then
+      echo "[]"
+    else
+      echo "thymus: no staged files to scan"
+    fi
+    exit 0
+  fi
+  # Use thymus-check on each staged file and merge results
+  ALL_VIOLATIONS="[]"
+  while IFS= read -r staged_file; do
+    [ -z "$staged_file" ] && continue
+    [ -f "$PROJECT_ROOT/$staged_file" ] || continue
+    FILE_VIOLATIONS=$(cd "$PROJECT_ROOT" && "$BIN_DIR/thymus-check" "$staged_file" --format json 2>/dev/null) || true
+    if [ -n "$FILE_VIOLATIONS" ] && [ "$FILE_VIOLATIONS" != "[]" ]; then
+      ALL_VIOLATIONS=$(echo "$ALL_VIOLATIONS" "$FILE_VIOLATIONS" | jq -s '.[0] + .[1]')
+    fi
+  done <<< "$STAGED_FILES"
+  VIOLATIONS="$ALL_VIOLATIONS"
+
+elif [ "${#FILES[@]}" -gt 0 ]; then
+  # Scan specific files using thymus-check
+  ALL_VIOLATIONS="[]"
+  for file in "${FILES[@]}"; do
+    [ -f "$PROJECT_ROOT/$file" ] || continue
+    FILE_VIOLATIONS=$(cd "$PROJECT_ROOT" && "$BIN_DIR/thymus-check" "$file" --format json 2>/dev/null) || true
+    if [ -n "$FILE_VIOLATIONS" ] && [ "$FILE_VIOLATIONS" != "[]" ]; then
+      ALL_VIOLATIONS=$(echo "$ALL_VIOLATIONS" "$FILE_VIOLATIONS" | jq -s '.[0] + .[1]')
+    fi
+  done
+  VIOLATIONS="$ALL_VIOLATIONS"
+
+else
+  # Full project scan — use scan-project.sh and translate
+  RAW_OUTPUT=$(cd "$PROJECT_ROOT" && bash "$SCRIPTS_DIR/scan-project.sh" 2>/dev/null) || {
+    echo "thymus-scan: scan-project.sh failed" >&2
+    exit 2
+  }
+
+  # Translate from internal format to public schema
+  VIOLATIONS=$(echo "$RAW_OUTPUT" | jq '
+    [ .violations[] | {
+      file: .file,
+      line: (if .line and .line != "" and .line != "?" then (.line | tonumber) else null end),
+      rule_id: .rule,
+      rule_name: .message,
+      severity: (if .severity == "warning" then "warn" else .severity end),
+      message: .message,
+      source_module: (.file | split("/") | if length > 1 then .[0] + "/" + .[1] else .[0] end),
+      target_module: (if .import then (.import | ltrimstr("../") | split("/")[0]) else null end),
+      import_path: (.import // null)
+    } ]
+  ')
+fi
+
+COUNT=$(echo "$VIOLATIONS" | jq 'length')
+
+# --- Output ---
+if [ "$FORMAT" = "json" ]; then
+  echo "$VIOLATIONS"
+else
+  if [ "$COUNT" -eq 0 ]; then
+    echo "thymus: no violations found"
+  else
+    ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length')
+    WARNS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "warn")] | length')
+    echo "thymus: $COUNT violation(s) found ($ERRORS errors, $WARNS warnings)"
+    echo ""
+    echo "$VIOLATIONS" | jq -r '.[] |
+      "  \(.severity): \(.file)" +
+      (if .line then ":\(.line)" else "" end) +
+      " — \(.message)" +
+      (if .import_path then " (import: \(.import_path))" else "" end)'
+  fi
+fi
+
+# --- Exit code ---
+if [ "$COUNT" -gt 0 ]; then
+  exit 1
+else
+  exit 0
+fi
