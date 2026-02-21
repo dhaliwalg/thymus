@@ -34,11 +34,16 @@ nextjs:
     type: boundary
     severity: error
     description: "Next.js pages must not import directly from the database layer"
-    source_globs:
-      - "pages/**"
-      - "app/**"
+    source_glob: "pages/**"
     forbidden_imports: ["prisma", "src/db/**", "mongoose", "sequelize"]
     reasoning: "Database access in pages bypasses the API layer and breaks SSR safety"
+
+  - id: nextjs-no-db-in-app
+    type: boundary
+    severity: error
+    description: "Next.js app routes must not import directly from the database layer"
+    source_glob: "app/**"
+    forbidden_imports: ["prisma", "src/db/**", "mongoose", "sequelize"]
 
   - id: nextjs-api-routes-only-in-pages-api
     type: structure
@@ -46,13 +51,18 @@ nextjs:
     description: "API route handlers belong in pages/api or app/api only"
     rule: "Files matching the Next.js route handler pattern should live under pages/api/** or app/api/**"
 
-  - id: nextjs-no-server-imports-in-client
+  - id: nextjs-no-server-imports-in-client-ts
     type: boundary
     severity: error
-    description: "Client components must not import server-only modules"
-    source_globs:
-      - "**/*.client.ts"
-      - "**/*.client.tsx"
+    description: "Client components (.client.ts) must not import server-only modules"
+    source_glob: "**/*.client.ts"
+    forbidden_imports: ["server-only", "fs", "path", "child_process"]
+
+  - id: nextjs-no-server-imports-in-client-tsx
+    type: boundary
+    severity: error
+    description: "Client components (.client.tsx) must not import server-only modules"
+    source_glob: "**/*.client.tsx"
     forbidden_imports: ["server-only", "fs", "path", "child_process"]
 
 express:
@@ -77,13 +87,18 @@ express:
     rule: "try/catch blocks in route handlers should call next(err), not respond directly"
 
 django:
-  - id: django-orm-in-models-only
-    type: boundary
+  - id: django-orm-not-in-views
+    type: pattern
     severity: error
     description: "Django ORM queries belong in models or managers, not in views"
-    source_globs:
-      - "**/views.py"
-      - "**/views/**"
+    scope_glob: "**/views/**"
+    forbidden_pattern: "(objects\\.filter|objects\\.get|objects\\.create|objects\\.all)"
+
+  - id: django-orm-not-in-views-py
+    type: pattern
+    severity: error
+    description: "Django ORM queries belong in models or managers, not in views.py"
+    scope_glob: "**/views.py"
     forbidden_pattern: "(objects\\.filter|objects\\.get|objects\\.create|objects\\.all)"
 
   - id: django-business-logic-in-services

@@ -15,7 +15,7 @@ AIS is the immune system. It learns what "healthy" looks like, detects foreign p
 ## Plugin Architecture Overview
 
 ```
-architectural-immune-system/
+thymus/
 ├── .claude-plugin/
 │   └── plugin.json                  # Plugin manifest (name, version, author)
 ├── skills/

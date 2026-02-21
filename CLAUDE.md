@@ -18,7 +18,7 @@ You are building **Architectural Immune System (AIS)** — a Claude Code plugin 
 ## Project Structure
 
 ```
-architectural-immune-system/
+thymus/
 ├── .claude-plugin/
 │   └── plugin.json              # ← Only plugin.json goes here. Nothing else.
 ├── skills/                      # ← At plugin ROOT, not inside .claude-plugin/
