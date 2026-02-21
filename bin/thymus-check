@@ -103,7 +103,7 @@ echo "$SAVED_VIOLATIONS" > "$SESSION_FILE"
 # Public:   {rule_id, severity(warn not warning), message, file, import_path?, line?(int), rule_name, source_module?, target_module?}
 REL_FILE="${ABS_FILE#"$PROJECT_ROOT"/}"
 
-VIOLATIONS=$(echo "$NEW_VIOLATIONS" | jq --arg rel "$REL_FILE" '
+VIOLATIONS=$(echo "$NEW_VIOLATIONS" | jq '
   [ .[] | {
     file: .file,
     line: (if .line and .line != "" and .line != "?" then (.line | tonumber) else null end),
