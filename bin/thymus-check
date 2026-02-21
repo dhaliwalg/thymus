@@ -15,6 +15,9 @@ done
 BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
 SCRIPTS_DIR="$(cd "$BIN_DIR/../scripts" && pwd)"
 
+# Check for updates (background, once per 24h)
+bash "$SCRIPTS_DIR/check-version.sh" &
+
 # --- Parse args ---
 FILE=""
 FORMAT=""

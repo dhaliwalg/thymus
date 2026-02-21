@@ -68,23 +68,25 @@ EOF
   # Copy framework-specific rules from templates if available
   if [ -f "$TEMPLATES_DIR/default-rules.yml" ]; then
     # Always add generic rules
-    python3 - "$TEMPLATES_DIR/default-rules.yml" "$THYMUS_DIR/invariants.yml" "$FRAMEWORK" <<'PYEOF'
+    python3 - "$TEMPLATES_DIR/default-rules.yml" "$THYMUS_DIR/invariants.yml" "$FRAMEWORK" "$LANG" <<'PYEOF'
 import sys, re
 
 template_file = sys.argv[1]
 output_file = sys.argv[2]
 framework = sys.argv[3]
+language = sys.argv[4] if len(sys.argv) > 4 else 'unknown'
 
 with open(template_file) as f:
     content = f.read()
 
 # Parse sections: find lines like "sectionname:" at indent 0
+# Supports hyphenated names (e.g. spring-boot:, spring-mvc:)
 sections = {}
 current_section = None
 current_lines = []
 for line in content.split('\n'):
     # Skip comments and blank lines at top level
-    if re.match(r'^[a-z]+:', line):
+    if re.match(r'^[a-z][a-z0-9-]*:', line):
         if current_section and current_lines:
             sections[current_section] = current_lines
         current_section = line.rstrip(':').strip()
@@ -94,10 +96,18 @@ for line in content.split('\n'):
 if current_section and current_lines:
     sections[current_section] = current_lines
 
-# Collect rules to add: always "generic", plus framework if detected
+# Collect rules to add: always "generic", plus language and framework sections
 targets = ['generic']
+if language != 'unknown' and language in sections:
+    targets.append(language)
 if framework != 'unknown' and framework in sections:
     targets.append(framework)
+
+# Rules to skip when a language-specific replacement exists
+# e.g. Java has java-test-colocation, so skip generic-test-colocation
+SKIP_RULES = set()
+if language == 'java':
+    SKIP_RULES.add('generic-test-colocation')
 
 rules = []
 for section in targets:
@@ -109,6 +119,7 @@ for section in targets:
 # Keep only actual rule blocks (starting with "  - id:")
 filtered = []
 in_commented = False
+skip_current_rule = False
 for line in rules:
     stripped = line.lstrip()
     if stripped.startswith('# ') and not stripped.startswith('# v2'):
@@ -119,6 +130,15 @@ for line in rules:
     if in_commented and (stripped == '' or stripped.startswith('#')):
         continue
     in_commented = False
+    # Check if this starts a rule that should be skipped
+    m = re.match(r'\s*- id:\s*["\']?([\w-]+)', line)
+    if m:
+        skip_current_rule = m.group(1) in SKIP_RULES
+    if skip_current_rule:
+        # Skip all lines of the current rule block
+        if not line.strip():
+            skip_current_rule = False
+        continue
     filtered.append(line)
 
 with open(output_file, 'a') as f:

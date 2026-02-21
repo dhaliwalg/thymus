@@ -15,6 +15,9 @@ done
 BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
 SCRIPTS_DIR="$(cd "$BIN_DIR/../scripts" && pwd)"
 
+# Check for updates (background, once per 24h)
+bash "$SCRIPTS_DIR/check-version.sh" &
+
 # --- Parse args ---
 DIFF_MODE=false
 FORMAT=""
@@ -32,11 +35,16 @@ for arg in "$@"; do
     --diff) DIFF_MODE=true ;;
     --files) PARSING_FILES=true ;;
     --format) : ;;
-    json|text)
+    --format=*) FORMAT="${arg#--format=}" ;;
+    -*)
+      if [ "${prev_arg:-}" != "--format" ]; then
+        echo "thymus-scan: unknown option: $arg" >&2; exit 2
+      fi
+      FORMAT="$arg"
+      ;;
+    *)
       if [ "${prev_arg:-}" = "--format" ]; then FORMAT="$arg"; fi
       ;;
-    --format=*) FORMAT="${arg#--format=}" ;;
-    -*) echo "thymus-scan: unknown option: $arg" >&2; exit 2 ;;
   esac
   prev_arg="$arg"
 done
