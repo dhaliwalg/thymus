@@ -437,6 +437,92 @@ fi
 
 rm -rf "$TMPDIR_CMD"
 
+# --- Task 7: settings.json hook permissions ---
+echo ""
+echo "refresh-baseline.sh (settings.json update):"
+
+TMPDIR_SETTINGS=$(mktemp -d)
+mkdir -p "$TMPDIR_SETTINGS/src/routes" "$TMPDIR_SETTINGS/src/models" "$TMPDIR_SETTINGS/.thymus" "$TMPDIR_SETTINGS/.claude"
+
+# Create baseline.json
+cat > "$TMPDIR_SETTINGS/.thymus/baseline.json" <<'BLJSON2'
+{
+  "generated_at": "2026-01-01T00:00:00",
+  "modules": [{"name": "routes", "path": "src/routes"}],
+  "boundaries": [], "patterns": [], "conventions": []
+}
+BLJSON2
+
+cat > "$TMPDIR_SETTINGS/.thymus/invariants.yml" <<'INVYML2'
+version: "1.0"
+invariants:
+  - id: test-rule
+    type: pattern
+    severity: error
+    description: "test"
+    forbidden_pattern: "TODO"
+    scope_glob: "src/**"
+INVYML2
+
+# Test 1: does NOT create settings.json if it doesn't exist
+rm -f "$TMPDIR_SETTINGS/.claude/settings.json"
+rmdir "$TMPDIR_SETTINGS/.claude" 2>/dev/null || true
+(cd "$TMPDIR_SETTINGS" && bash "$REFRESH" > /dev/null 2>&1)
+if [ ! -f "$TMPDIR_SETTINGS/.claude/settings.json" ]; then
+  echo "  ✓ does not create settings.json when .claude/ doesn't exist"
+  ((passed++)) || true
+else
+  echo "  ✗ created settings.json when it shouldn't have"
+  ((failed++)) || true
+fi
+
+# Test 2: adds hook permissions to existing settings.json
+mkdir -p "$TMPDIR_SETTINGS/.claude"
+echo '{"permissions":{"allow":["Bash(git status)"]}}' | jq . > "$TMPDIR_SETTINGS/.claude/settings.json"
+(cd "$TMPDIR_SETTINGS" && bash "$REFRESH" > /dev/null 2>&1)
+if jq -e '.permissions.allow | map(select(contains("analyze-edit"))) | length > 0' "$TMPDIR_SETTINGS/.claude/settings.json" > /dev/null 2>&1; then
+  echo "  ✓ adds hook permissions to existing settings.json"
+  ((passed++)) || true
+else
+  echo "  ✗ did not add hook permissions"
+  echo "    got: $(cat "$TMPDIR_SETTINGS/.claude/settings.json")"
+  ((failed++)) || true
+fi
+
+# Test 3: preserves existing settings
+if jq -e '.permissions.allow | map(select(. == "Bash(git status)")) | length > 0' "$TMPDIR_SETTINGS/.claude/settings.json" > /dev/null 2>&1; then
+  echo "  ✓ preserves existing settings"
+  ((passed++)) || true
+else
+  echo "  ✗ existing settings lost"
+  ((failed++)) || true
+fi
+
+# Test 4: idempotent — running again doesn't duplicate entries
+(cd "$TMPDIR_SETTINGS" && bash "$REFRESH" > /dev/null 2>&1)
+ANALYZE_COUNT=$(jq '.permissions.allow | map(select(contains("analyze-edit"))) | length' "$TMPDIR_SETTINGS/.claude/settings.json")
+if [ "$ANALYZE_COUNT" -eq 1 ]; then
+  echo "  ✓ idempotent — no duplicate hook entries"
+  ((passed++)) || true
+else
+  echo "  ✗ duplicate hook entries ($ANALYZE_COUNT)"
+  ((failed++)) || true
+fi
+
+# Test 5: handles settings.json with no permissions key
+echo '{"model":"sonnet"}' | jq . > "$TMPDIR_SETTINGS/.claude/settings.json"
+(cd "$TMPDIR_SETTINGS" && bash "$REFRESH" > /dev/null 2>&1)
+if jq -e '.permissions.allow | length > 0' "$TMPDIR_SETTINGS/.claude/settings.json" > /dev/null 2>&1 \
+  && jq -e '.model == "sonnet"' "$TMPDIR_SETTINGS/.claude/settings.json" > /dev/null 2>&1; then
+  echo "  ✓ handles settings.json with no permissions key"
+  ((passed++)) || true
+else
+  echo "  ✗ failed on settings.json with no permissions key"
+  ((failed++)) || true
+fi
+
+rm -rf "$TMPDIR_SETTINGS"
+
 echo ""
 echo "Results: $passed passed, $failed failed"
 [ "$failed" -eq 0 ] || exit 1

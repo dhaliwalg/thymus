@@ -166,3 +166,45 @@ open(p,'w').write(t+'\n' if t else '')
 }
 
 _update_claude_md "$PWD"
+
+# --- Auto-update .claude/settings.json with hook permissions ---
+_update_settings_json() {
+  local project_root="$1"
+  local settings_file="$project_root/.claude/settings.json"
+
+  [ -f "$settings_file" ] || return 0
+
+  local script_dir
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
+  local hooks_file="$script_dir/../hooks/hooks.json"
+  [ -f "$hooks_file" ] || return 0
+
+  # Extract hook commands from hooks.json
+  local hook_commands
+  hook_commands=$(jq -r '
+    .hooks | to_entries[].value[].hooks[].command
+  ' "$hooks_file" 2>/dev/null) || return 0
+
+  # Ensure permissions.allow array exists
+  local current
+  current=$(jq '
+    if .permissions == null then .permissions = {} else . end |
+    if .permissions.allow == null then .permissions.allow = [] else . end
+  ' "$settings_file") || return 0
+
+  # Add each hook command if not already present
+  while IFS= read -r cmd; do
+    [ -z "$cmd" ] && continue
+    # ${CLAUDE_PLUGIN_ROOT} is left unexpanded — Claude Code resolves it at runtime
+    local entry="Bash($cmd)"
+    current=$(echo "$current" | jq --arg e "$entry" '
+      if (.permissions.allow | map(select(. == $e)) | length) == 0
+      then .permissions.allow += [$e]
+      else . end
+    ')
+  done <<< "$hook_commands"
+
+  echo "$current" | jq --indent 2 '.' > "$settings_file"
+}
+
+_update_settings_json "$PWD"
