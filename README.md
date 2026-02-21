@@ -166,12 +166,12 @@ language: typescript   # auto-detected; override if needed
 ## Supported languages
 
 | Language | Framework detection | Import analysis |
-|----------|--------------------|--------------  |
-| TypeScript/JavaScript | Next.js, Express, React | yes |
-| Python | Django, FastAPI, Flask | yes |
-| Go | modules | yes |
-| Rust | Cargo | yes |
-| Java | Maven, Gradle | partial |
+|----------|--------------------| ----------------|
+| TypeScript/JavaScript | Next.js, Express, React | AST |
+| Python | Django, FastAPI, Flask | AST |
+| Go | modules | regex |
+| Rust | Cargo | regex |
+| Java | Maven, Gradle | regex |
 
 ---
 
