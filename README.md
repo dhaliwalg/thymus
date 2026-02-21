@@ -1,6 +1,6 @@
 # Thymus
 
-A Claude Code plugin that watches your codebase for architectural drift and enforces structural invariants as you write code.
+A Claude Code plugin that watches your codebase for architectural drift and enforces structural invariants — in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.
 
 Code gets generated fast. Over time, architecture quietly rots — boundary violations, inconsistent patterns, modules that should never talk to each other suddenly do. Thymus is the immune system: it learns what healthy looks like and warns when things go wrong, before the mess compounds.
 
@@ -25,6 +25,64 @@ That's it. Thymus now checks every file you edit against your rules.
 **Check health**
 ```
 /thymus:health
+```
+
+---
+
+## Cross-Editor Usage
+
+Thymus works everywhere — not just Claude Code.
+
+### CLI (any environment)
+
+```bash
+bin/thymus scan              # Scan entire project
+bin/thymus scan --diff       # Scan staged files only
+bin/thymus check src/file.ts # Check single file
+bin/thymus init              # Initialize .thymus/ in a new project
+```
+
+### VS Code / Cursor / Windsurf
+
+1. Build the extension: `cd integrations/vscode && npm install && npm run compile`
+2. Open a project that has `.thymus/invariants.yml`
+3. Violations appear as squiggly underlines on save
+
+### Git Pre-Commit Hook
+
+```bash
+# Option A: Symlink (recommended)
+ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
+
+# Option B: pre-commit framework
+# Add to .pre-commit-config.yaml:
+- repo: local
+  hooks:
+    - id: thymus
+      name: thymus architectural lint
+      entry: bin/thymus scan --diff --format text
+      language: script
+      pass_filenames: false
+```
+
+### CI/CD (GitHub Actions)
+
+```yaml
+# .github/workflows/thymus.yml
+name: Architectural Lint
+on: [pull_request]
+jobs:
+  thymus:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run Thymus
+        uses: ./integrations/github-actions
+        with:
+          scan-mode: diff
+          fail-on: error
 ```
 
 ---
