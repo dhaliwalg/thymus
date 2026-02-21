@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# thymus — Architectural invariants for AI-assisted codebases
+# Usage: thymus <command> [options]
+
+VERSION="0.1.0"
+
+# --- Resolve script location ---
+SCRIPT="$0"
+while [ -L "$SCRIPT" ]; do
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+  SCRIPT="$(readlink "$SCRIPT")"
+  [[ "$SCRIPT" != /* ]] && SCRIPT="$SCRIPT_DIR/$SCRIPT"
+done
+BIN_DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+
+usage() {
+  cat <<EOF
+thymus v$VERSION — Architectural invariants for AI-assisted codebases
+
+Usage: thymus <command> [options]
+
+Commands:
+  scan [--diff] [--files f1 f2] [--format json|text]   Scan project or staged files
+  check <file> [--format json|text]                     Check single file against invariants
+  init [dir]                                            Initialize .thymus/ in a project
+  version                                               Print version
+
+Exit codes:
+  0  No violations found
+  1  Violations found
+  2  Configuration or runtime error
+
+Docs: https://github.com/anthropics/thymus
+EOF
+}
+
+if [ $# -eq 0 ]; then
+  usage
+  exit 2
+fi
+
+COMMAND="$1"
+shift
+
+case "$COMMAND" in
+  scan)
+    exec "$BIN_DIR/thymus-scan" "$@"
+    ;;
+  check)
+    exec "$BIN_DIR/thymus-check" "$@"
+    ;;
+  init)
+    exec "$BIN_DIR/thymus-init" "$@"
+    ;;
+  version)
+    echo "thymus v$VERSION"
+    exit 0
+    ;;
+  help|--help|-h)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "thymus: unknown command: $COMMAND" >&2
+    echo "Run 'thymus help' for usage." >&2
+    exit 2
+    ;;
+esac

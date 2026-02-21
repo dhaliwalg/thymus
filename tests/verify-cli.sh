@@ -54,6 +54,42 @@ check_exit() {
   fi
 }
 
+# --- thymus (main entry point) ---
+echo "thymus (entry point):"
+
+# Test: version command
+output=$("$ROOT/bin/thymus" version 2>/dev/null)
+check "version outputs version string" "thymus" "$output"
+check_exit "version exits 0" 0 "$ROOT/bin/thymus" version
+
+# Test: no args shows usage
+output=$("$ROOT/bin/thymus" 2>/dev/null || true)
+check "no args shows usage" "Usage:" "$output"
+
+# Test: scan subcommand routes to thymus-scan
+output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus" scan --format json 2>/dev/null || true)
+check "scan routes correctly" "boundary-routes-no-direct-db" "$output"
+
+# Test: check subcommand routes to thymus-check
+output=$(cd "$UNHEALTHY" && "$ROOT/bin/thymus" check src/routes/users.ts --format json 2>/dev/null || true)
+check "check routes correctly" "boundary-routes-no-direct-db" "$output"
+
+# Test: init subcommand
+TMPDIR_ENTRY=$(mktemp -d)
+"$ROOT/bin/thymus" init "$TMPDIR_ENTRY" > /dev/null 2>&1
+if [ -f "$TMPDIR_ENTRY/.thymus/invariants.yml" ]; then
+  echo "  ✓ init routes correctly"
+  ((passed++)) || true
+else
+  echo "  ✗ init routing failed"
+  ((failed++)) || true
+fi
+rm -rf "$TMPDIR_ENTRY"
+
+# Test: unknown command exits 2
+check_exit "unknown command exits 2" 2 "$ROOT/bin/thymus" foobar
+
+echo ""
 # --- thymus-check ---
 echo "thymus-check:"
 
