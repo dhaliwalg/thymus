@@ -37,9 +37,19 @@ SCOPE=$(echo "$SCAN" | jq -r '.scope // ""')
 
 UNIQUE_ERROR_RULES=$(echo "$SCAN" | jq '[.violations[] | select(.severity=="error") | .rule] | unique | length')
 UNIQUE_WARNING_RULES=$(echo "$SCAN" | jq '[.violations[] | select(.severity=="warning") | .rule] | unique | length')
+ERROR_COUNT=$(echo "$SCAN" | jq '[.violations[] | select(.severity=="error")] | length')
+WARNING_COUNT=$(echo "$SCAN" | jq '[.violations[] | select(.severity=="warning")] | length')
 
-# Health score: 100 - unique_error_rules×10 - unique_warning_rules×3, floor 0
-SCORE=$(echo "$UNIQUE_ERROR_RULES $UNIQUE_WARNING_RULES" | awk '{s=100-$1*10-$2*3; print (s<0?0:s)}')
+# Health score: penalizes both unique rules and volume (log-scaled)
+# Base: unique rules penalty + per-violation penalty using log scale
+SCORE=$(echo "$UNIQUE_ERROR_RULES $UNIQUE_WARNING_RULES $ERROR_COUNT $WARNING_COUNT" | awk '{
+  rule_penalty = $1*10 + $2*3;
+  vol_penalty = 0;
+  if ($3 > 0) vol_penalty += log($3+1)/log(2) * 3;
+  if ($4 > 0) vol_penalty += log($4+1)/log(2) * 1;
+  s = 100 - rule_penalty - vol_penalty;
+  printf "%d", (s<0 ? 0 : s);
+}')
 
 # --- Trend arrow (compare to last history snapshot) ---
 PREV_SCORE=""

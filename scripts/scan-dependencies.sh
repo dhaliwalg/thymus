@@ -34,7 +34,7 @@ detect_language() {
     echo "go"
   elif [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
     echo "rust"
-  elif [ -f "$PROJECT_ROOT/pom.xml" ] || [ -f "$PROJECT_ROOT/build.gradle" ]; then
+  elif [ -f "$PROJECT_ROOT/pom.xml" ] || [ -f "$PROJECT_ROOT/build.gradle" ] || [ -f "$PROJECT_ROOT/build.gradle.kts" ]; then
     echo "java"
   else
     echo "unknown"
@@ -70,6 +70,30 @@ detect_framework() {
     else
       echo "unknown"
     fi
+  elif [ "$lang" = "java" ]; then
+    local build_content=""
+    if [ -f "$PROJECT_ROOT/pom.xml" ]; then
+      build_content=$(cat "$PROJECT_ROOT/pom.xml" 2>/dev/null)
+    elif [ -f "$PROJECT_ROOT/build.gradle" ]; then
+      build_content=$(cat "$PROJECT_ROOT/build.gradle" 2>/dev/null)
+    elif [ -f "$PROJECT_ROOT/build.gradle.kts" ]; then
+      build_content=$(cat "$PROJECT_ROOT/build.gradle.kts" 2>/dev/null)
+    fi
+    if echo "$build_content" | grep -q "spring-boot-starter-web\|spring-webmvc"; then
+      if echo "$build_content" | grep -q "spring-boot-starter"; then
+        echo "spring-boot"
+      else
+        echo "spring-mvc"
+      fi
+    elif echo "$build_content" | grep -q "quarkus-core\|quarkus-bom"; then
+      echo "quarkus"
+    elif echo "$build_content" | grep -q "micronaut-core\|micronaut-bom"; then
+      echo "micronaut"
+    elif echo "$build_content" | grep -q "dropwizard"; then
+      echo "dropwizard"
+    else
+      echo "unknown"
+    fi
   else
     echo "unknown"
   fi
@@ -96,6 +120,45 @@ get_external_deps() {
         { grep -oE '[a-z0-9.-]+/[a-z0-9./-]+' || true; } | jq -R . | jq -s .
       return
     fi
+  elif [ "$lang" = "java" ]; then
+    if [ -f "$PROJECT_ROOT/pom.xml" ]; then
+      python3 -c "
+import xml.etree.ElementTree as ET, json, sys
+try:
+    tree = ET.parse('$PROJECT_ROOT/pom.xml')
+    root = tree.getroot()
+    ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
+    # Try with namespace first, then without
+    deps_els = root.findall('.//m:dependency', ns)
+    if not deps_els:
+        deps_els = root.findall('.//dependency')
+    deps = []
+    for dep in deps_els:
+        group = dep.find('m:groupId', ns)
+        if group is None:
+            group = dep.find('groupId')
+        artifact = dep.find('m:artifactId', ns)
+        if artifact is None:
+            artifact = dep.find('artifactId')
+        version = dep.find('m:version', ns)
+        if version is None:
+            version = dep.find('version')
+        if group is not None and artifact is not None:
+            v = version.text if version is not None else 'managed'
+            deps.append(f'{group.text}:{artifact.text}:{v}')
+    print(json.dumps(deps))
+except Exception:
+    print('[]')
+" 2>/dev/null
+      return
+    elif [ -f "$PROJECT_ROOT/build.gradle" ] || [ -f "$PROJECT_ROOT/build.gradle.kts" ]; then
+      local gradle_file="$PROJECT_ROOT/build.gradle"
+      [ -f "$gradle_file" ] || gradle_file="$PROJECT_ROOT/build.gradle.kts"
+      { grep -oE "(implementation|compile|api|runtimeOnly|compileOnly|testImplementation)[[:space:]]*['\(]['\"]([^'\"]+)['\"]" "$gradle_file" 2>/dev/null || true; } \
+        | { grep -oE "['\"][^'\"]+['\"]" || true; } | tr -d "'" | tr -d '"' \
+        | jq -R . | jq -s .
+      return
+    fi
   fi
   echo "[]"
 }
@@ -115,6 +178,9 @@ get_import_frequency() {
     go)
       pattern="\"[a-z0-9_-]+/"
       ;;
+    java)
+      pattern="^import [a-z]"
+      ;;
     *)
       echo "[]"
       return
@@ -122,7 +188,7 @@ get_import_frequency() {
   esac
 
   local result
-  result=$(find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
+  result=$(find "$PROJECT_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) \
     "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
   | ( xargs grep -hoE "$pattern" 2>/dev/null || true ) \
   | sed "s/from ['\"]//" | sed "s/['\"]$//" \
@@ -149,10 +215,11 @@ get_cross_module_imports() {
       local from_module
       from_module=$(basename "$module_dir")
 
-      find "$module_dir" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" \) \
+      find "$module_dir" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.java" -o -name "*.rs" \) \
         "${IGNORED_FIND_ARGS[@]}" 2>/dev/null \
-      | ( xargs grep -hoE "from ['\"\`]\.\./[a-z_-]+" 2>/dev/null || true ) \
-      | ( grep -oE "\.\./[a-z_-]+" || true ) | sed 's|\.\./||' \
+      | ( xargs grep -hoE "from ['\"\`]\.\./[a-z_-]+|import [a-z]+\.[a-z]+\.[a-z]+" 2>/dev/null || true ) \
+      | ( grep -oE "\.\./[a-z_-]+|import [a-z]+\.[a-z]+\.[a-z]+" || true ) \
+      | sed 's|\.\./||; s|import [a-z]*\.||; s|\..*||' \
       | sort -u \
       | while read -r to_module; do
           echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"

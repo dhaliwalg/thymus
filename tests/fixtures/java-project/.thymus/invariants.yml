@@ -1,0 +1,14 @@
+invariants:
+  - id: boundary-controller-no-repository
+    type: boundary
+    severity: error
+    description: "Controllers must not import repositories directly"
+    source_glob: "**/controller/*.java"
+    forbidden_imports:
+      - "**/repository/**"
+
+  - id: convention-java-test-colocation
+    type: convention
+    severity: warning
+    description: "Java source classes should have corresponding test classes"
+    rule: "For every src/main/java/**/*.java, there should be a test"

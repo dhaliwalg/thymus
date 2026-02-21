@@ -141,10 +141,16 @@ import_is_forbidden() {
   local import="$1" inv_json="$2"
   local count
   count=$(echo "$inv_json" | jq '.forbidden_imports | length' 2>/dev/null || echo 0)
+  # For Java dot-separated imports, also try matching as a path (dots -> slashes)
+  local import_as_path="$import"
+  if [[ "$import" == *.* ]] && [[ "$import" != */* ]]; then
+    import_as_path=$(printf '%s' "$import" | tr '.' '/')
+  fi
   for ((f=0; f<count; f++)); do
     local pattern
     pattern=$(echo "$inv_json" | jq -r ".forbidden_imports[$f]")
-    if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ]; then
+    if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ] \
+       || path_matches "$import_as_path" "$pattern"; then
       return 0
     fi
   done
@@ -173,7 +179,7 @@ else
   [ -n "$SCOPE" ] && SCAN_ROOT="$PWD/$SCOPE"
   while IFS= read -r f; do
     [ -n "$f" ] && FILES+=("$(echo "$f" | sed "s|$PWD/||")")
-  done < <(find "$SCAN_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" \) \
+  done < <(find "$SCAN_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" \) \
     "${IGNORED_ARGS[@]}" 2>/dev/null | sort)
 fi
 
@@ -236,12 +242,34 @@ for rel_path in "${FILES[@]}"; do
       convention)
         rule_text=$(echo "$inv" | jq -r '.rule // empty')
         if echo "$rule_text" | grep -qi "test"; then
-          if [[ "$rel_path" =~ \.(ts|js|py)$ ]] \
+          if [[ "$rel_path" =~ \.(ts|js|py|java|go|rs)$ ]] \
              && [[ ! "$rel_path" =~ \.(test|spec)\. ]] \
-             && [[ ! "$rel_path" =~ \.d\.ts$ ]]; then
+             && [[ ! "$rel_path" =~ \.d\.ts$ ]] \
+             && [[ ! "$rel_path" =~ (Test|Tests|IT|Spec)\.java$ ]]; then
             base="${abs_path%.*}"
             ext="${abs_path##*.}"
-            if ! { [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; }; then
+            has_test=false
+            if [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; then
+              has_test=true
+            elif [ "$ext" = "java" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}Test.java" ] || \
+                 [ -f "${dir}/${basename_no_ext}Tests.java" ] || \
+                 [ -f "${dir}/${basename_no_ext}IT.java" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/main/java/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|src/main/java|src/test/java|')
+                test_mirror_base="${test_mirror%.*}"
+                if [ -f "${test_mirror_base}Test.java" ] || \
+                   [ -f "${test_mirror_base}Tests.java" ] || \
+                   [ -f "${test_mirror_base}IT.java" ]; then
+                  has_test=true
+                fi
+              fi
+            fi
+            if [ "$has_test" = "false" ]; then
               violation_objects+=("$(jq -n \
                 --arg rule "$rule_id" --arg sev "$severity" \
                 --arg msg "Missing colocated test file" --arg file "$rel_path" \
@@ -264,8 +292,9 @@ for rel_path in "${FILES[@]}"; do
           fi
         done
         $in_allowed && continue
-        # Check if the file imports the package
-        if grep -qE "(from|require|import)[[:space:]]*['\"]${package}['\"]|from ${package} import|import ${package}" "$abs_path" 2>/dev/null; then
+        # Check if the file imports the package (using AST-aware extractor)
+        file_imports=$(extract_imports "$abs_path")
+        if echo "$file_imports" | grep -qF "$package" 2>/dev/null; then
           violation_objects+=("$(jq -n \
             --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
             --arg file "$rel_path" --arg pkg "$package" \
