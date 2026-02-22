@@ -1,4 +1,5 @@
 {
+  "name": "thymus",
   "owner": {
     "name": "Gurjit Dhaliwal",
     "url": "https://github.com/dhaliwalg"
@@ -6,8 +7,8 @@
   "plugins": [
     {
       "name": "thymus",
-      "displayName": "Thymus — Architectural Invariants",
-      "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests. Learn rules in plain English, enforce them everywhere.",
+      "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests.",
+      "source": ".",
       "repository": "https://github.com/dhaliwalg/thymus"
     }
   ],
