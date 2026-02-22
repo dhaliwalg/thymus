@@ -49,7 +49,7 @@ detect_language() {
        find "$PROJECT_ROOT" -name "*.xcworkspace" -maxdepth 1 2>/dev/null | grep -q .; then
     echo "swift"
   elif find "$PROJECT_ROOT" -name "*.csproj" -maxdepth 2 2>/dev/null | grep -q . || \
-       [ -f "$PROJECT_ROOT/*.sln" ] 2>/dev/null; then
+       find "$PROJECT_ROOT" -maxdepth 1 -name "*.sln" 2>/dev/null | grep -q .; then
     echo "csharp"
   elif [ -f "$PROJECT_ROOT/composer.json" ]; then
     echo "php"
@@ -125,8 +125,6 @@ detect_framework() {
         echo "gorilla"
       elif grep -q "github.com/go-chi/chi" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
         echo "chi"
-      elif grep -q "net/http" "$PROJECT_ROOT/go.mod" 2>/dev/null; then
-        echo "stdlib-http"
       else
         echo "unknown"
       fi
@@ -272,10 +270,10 @@ get_external_deps() {
     fi
   elif [ "$lang" = "java" ]; then
     if [ -f "$PROJECT_ROOT/pom.xml" ]; then
-      python3 -c "
+      python3 - "$PROJECT_ROOT/pom.xml" <<'PYEOF'
 import xml.etree.ElementTree as ET, json, sys
 try:
-    tree = ET.parse('$PROJECT_ROOT/pom.xml')
+    tree = ET.parse(sys.argv[1])
     root = tree.getroot()
     ns = {'m': 'http://maven.apache.org/POM/4.0.0'}
     # Try with namespace first, then without
@@ -299,7 +297,7 @@ try:
     print(json.dumps(deps))
 except Exception:
     print('[]')
-" 2>/dev/null
+PYEOF
       return
     elif [ -f "$PROJECT_ROOT/build.gradle" ] || [ -f "$PROJECT_ROOT/build.gradle.kts" ]; then
       local gradle_file="$PROJECT_ROOT/build.gradle"
@@ -438,7 +436,7 @@ get_cross_module_imports() {
       | sed "$sed_pattern" \
       | sort -u \
       | while read -r to_module; do
-          [ -n "$to_module" ] && echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          [ -n "$to_module" ] && jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         done
     done || true)
   if [ -n "$result" ]; then
@@ -518,7 +516,7 @@ _get_cross_module_imports_java() {
         local sub_package
         sub_package=$(echo "$imp" | sed "s|^${base_package}\.||" | cut -d. -f1)
         if [ -n "$sub_package" ] && [ "$sub_package" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$sub_package\"}"
+          jq -n --arg f "$from_module" --arg t "$sub_package" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -570,7 +568,7 @@ _get_cross_module_imports_go() {
         local to_module
         to_module=$(echo "$rel_import" | sed 's|^src/||' | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -614,7 +612,7 @@ _get_cross_module_imports_rust() {
         local to_module
         to_module=$(echo "$imp" | sed 's|^crate::||' | cut -d: -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -667,7 +665,7 @@ _get_cross_module_imports_dart() {
         local to_module
         to_module=$(echo "$rel_path" | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -694,7 +692,7 @@ _get_cross_module_imports_csharp() {
   local csproj_file
   csproj_file=$(find "$PROJECT_ROOT" -name "*.csproj" -maxdepth 2 2>/dev/null | head -1)
   if [ -n "$csproj_file" ]; then
-    root_ns=$(grep -oP '<RootNamespace>\K[^<]+' "$csproj_file" 2>/dev/null || true)
+    root_ns=$(sed -n 's/.*<RootNamespace>\([^<]*\)<\/RootNamespace>.*/\1/p' "$csproj_file" 2>/dev/null | head -1)
     if [ -z "$root_ns" ]; then
       root_ns=$(basename "${csproj_file%.csproj}")
     fi
@@ -715,7 +713,7 @@ _get_cross_module_imports_csharp() {
         local sub_ns
         sub_ns=$(echo "$imp" | sed "s|^${root_ns}\.||" | cut -d. -f1)
         if [ -n "$sub_ns" ] && [ "$sub_ns" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$sub_ns\"}"
+          jq -n --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -762,7 +760,7 @@ _get_cross_module_imports_php() {
         local sub_ns
         sub_ns=$(echo "$imp" | sed "s|^${root_ns}\\\\||" | cut -d'\' -f1)
         if [ -n "$sub_ns" ] && [ "$sub_ns" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$sub_ns\"}"
+          jq -n --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -803,7 +801,7 @@ _get_cross_module_imports_ruby() {
         local to_module
         to_module=$(echo "$imp" | sed 's|^\.\./||' | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$to_module\"}"
+          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -843,7 +841,7 @@ _get_cross_module_imports_swift() {
       python3 "$extractor" "$swift_file" 2>/dev/null | while read -r imp; do
         # Check if the import is another target in the same package
         if [ -d "$PROJECT_ROOT/Sources/$imp" ] && [ "$imp" != "$from_module" ]; then
-          echo "{\"from\":\"$from_module\",\"to\":\"$imp\"}"
+          jq -n --arg f "$from_module" --arg t "$imp" '{from:$f,to:$t}'
         fi
       done
     done | sort -u > /tmp/thymus-swift-xmod-$$.tmp

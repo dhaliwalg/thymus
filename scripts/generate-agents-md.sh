@@ -45,11 +45,11 @@ DETECTED_LAYERS=$(echo "$PATTERNS_JSON" | jq -r '.detected_layers[]' 2>/dev/null
 CACHE_DIR="/tmp/thymus-agentsmd-$$"
 mkdir -p "$CACHE_DIR"
 
-python3 -c "
+python3 - "$INVARIANTS_FILE" "$CACHE_DIR/invariants.json" <<'PYEOF'
 import json, re, sys
 
-src = '$INVARIANTS_FILE'
-dst = '$CACHE_DIR/invariants.json'
+src = sys.argv[1]
+dst = sys.argv[2]
 
 def parse(src, dst):
     with open(src) as f:
@@ -68,23 +68,23 @@ def parse(src, dst):
         if stripped.startswith('- id:'):
             if current:
                 invariants.append(current)
-            current = {'id': stripped.split(':', 1)[1].strip().strip('\"').strip(\"'\")}
+            current = {'id': stripped.split(':', 1)[1].strip().strip('"').strip("'")}
             list_key = None
         elif current and indent >= 4 and ':' in stripped and not stripped.startswith('- '):
             list_key = None
             key, val = stripped.split(':', 1)
             key = key.strip()
-            val = val.strip().strip('\"').strip(\"'\")
+            val = val.strip().strip('"').strip("'")
             if val == '' or val == '[]':
                 list_key = key
                 current[key] = []
             elif val.startswith('[') and val.endswith(']'):
-                items = [x.strip().strip('\"').strip(\"'\") for x in val[1:-1].split(',')]
+                items = [x.strip().strip('"').strip("'") for x in val[1:-1].split(',')]
                 current[key] = [x for x in items if x]
             else:
                 current[key] = val
         elif current and list_key and stripped.startswith('- '):
-            item = stripped[2:].strip().strip('\"').strip(\"'\")
+            item = stripped[2:].strip().strip('"').strip("'")
             current[list_key].append(item)
     if current:
         invariants.append(current)
@@ -92,7 +92,7 @@ def parse(src, dst):
         json.dump(invariants, f)
 
 parse(src, dst)
-" 2>/dev/null
+PYEOF
 
 INVARIANTS_JSON="$CACHE_DIR/invariants.json"
 if [ ! -f "$INVARIANTS_JSON" ]; then

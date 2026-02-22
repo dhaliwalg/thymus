@@ -168,10 +168,12 @@ print("version: \"1.0\"")
 print("invariants:")
 
 for r in rules:
+    # Escape quotes and YAML-significant chars in description
+    safe_desc = r['desc'].replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ')
     print(f"  - id: {r['id']}")
     print(f"    type: {r['type']}")
     print(f"    severity: warning")
-    print(f"    description: \"{r['desc']}\"")
+    print(f"    description: \"{safe_desc}\"")
 
     if r['type'] == 'boundary':
         source = r['source']
