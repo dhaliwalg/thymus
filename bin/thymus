@@ -27,6 +27,7 @@ Commands:
   history [--json]                                      Show scan history
   score                                                 Show current compliance score
   graph                                                 Generate dependency graph HTML
+  infer [--min-confidence N] [--apply]             Infer boundary rules from imports
   init [dir]                                            Initialize .thymus/ in a project
   version                                               Print version
 
@@ -59,6 +60,9 @@ case "$COMMAND" in
     ;;
   graph)
     exec bash "$BIN_DIR/../scripts/generate-graph.sh" "$@"
+    ;;
+  infer)
+    exec bash "$BIN_DIR/../scripts/infer-rules.sh" "$@"
     ;;
   history)
     THYMUS_DIR="$PWD/.thymus"
