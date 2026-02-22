@@ -31,10 +31,11 @@ if [ -f "$THYMUS_DIR/invariants.yml" ]; then
 fi
 
 RECENT_VIOLATIONS=0
-if [ -d "$THYMUS_DIR/history" ]; then
-  LAST_SNAPSHOT=$(find "$THYMUS_DIR/history" -name "*.json" -type f | sort | tail -1)
-  if [ -n "$LAST_SNAPSHOT" ]; then
-    RECENT_VIOLATIONS=$(jq '.violations | length' "$LAST_SNAPSHOT" 2>/dev/null || echo "0")
+HISTORY_FILE="$THYMUS_DIR/history.jsonl"
+if [ -f "$HISTORY_FILE" ]; then
+  LAST_LINE=$(tail -1 "$HISTORY_FILE" 2>/dev/null || true)
+  if [ -n "$LAST_LINE" ]; then
+    RECENT_VIOLATIONS=$(echo "$LAST_LINE" | jq '.violations.error // 0' 2>/dev/null || echo "0")
   fi
 fi
 

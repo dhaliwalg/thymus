@@ -4,11 +4,11 @@ set -euo pipefail
 # Thymus scan-project.sh — batch invariant checker
 # Usage: bash scan-project.sh [scope_path] [--diff]
 # Output: JSON { violations: [...], stats: {...}, scope: "..." }
-# scope_path: optional subdirectory to limit scan (e.g. "src/auth")
-# --diff: limit scan to files changed since git HEAD
 
-DEBUG_LOG="/tmp/thymus-debug.log"
-TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/eval-rules.sh"
+
 THYMUS_DIR="$PWD/.thymus"
 INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
@@ -28,147 +28,18 @@ if [ ! -f "$INVARIANTS_YML" ]; then
   exit 0
 fi
 
-PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
-mkdir -p "$CACHE_DIR"
-
-# --- YAML → JSON (cached by mtime) ---
-load_invariants() {
-  local yml="$1" cache="$2"
-  [ -f "$yml" ] || { echo "Thymus: invariants.yml not found" >&2; return 1; }
-  if [ -f "$cache" ] && [ "$cache" -nt "$yml" ]; then
-    echo "$cache"; return 0
-  fi
-  python3 - "$yml" "$cache" <<'PYEOF'
-import sys, json, re
-
-def strip_val(s):
-    """Strip inline comments (2+ spaces before #) and surrounding quotes."""
-    s = re.sub(r'\s{2,}#.*$', '', s)
-    return s.strip('"\'')
-
-def parse(src, dst):
-    invariants = []
-    current = None
-    list_key = None
-    with open(src) as f:
-        for line in f:
-            line = line.rstrip('\n')
-            m = re.match(r'^  - id:\s*["\']?(.*?)["\']?\s*$', line)
-            if m:
-                if current:
-                    invariants.append(current)
-                current = {'id': strip_val(m.group(1))}
-                list_key = None
-                continue
-            if current is None:
-                continue
-            m = re.match(r'^      - ["\']?(.*?)["\']?\s*$', line)
-            if m and list_key is not None:
-                current[list_key].append(strip_val(m.group(1)))
-                continue
-            m = re.match(r'^    ([a-z_]+):\s*$', line)
-            if m:
-                list_key = m.group(1)
-                current[list_key] = []
-                continue
-            m = re.match(r'^    ([a-z_]+):\s*["\']?(.*?)["\']?\s*$', line)
-            if m:
-                current[m.group(1)] = strip_val(m.group(2))
-                list_key = None
-                continue
-    if current:
-        invariants.append(current)
-    with open(dst, 'w') as f:
-        json.dump({'invariants': invariants}, f)
-
-parse(sys.argv[1], sys.argv[2])
-PYEOF
-  if [ $? -ne 0 ] || [ ! -s "$cache" ]; then
-    echo "Thymus: Failed to parse invariants.yml" >&2; return 1
-  fi
-  echo "$cache"
-}
+CACHE_DIR=$(thymus_cache_dir)
 
 INVARIANTS_JSON=$(load_invariants "$INVARIANTS_YML" "$CACHE_DIR/invariants-scan.json") || {
   echo '{"error":"Failed to parse invariants.yml","violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
   exit 0
 }
 
-# --- Glob → regex ---
-glob_to_regex() {
-  printf '%s' "$1" \
-    | sed \
-        -e 's/\./\\./g' \
-        -e 's|\*\*|__DS__|g' \
-        -e 's|\*|[^/]*|g' \
-        -e 's|__DS__|.*|g'
-}
-
-path_matches() {
-  local path="$1" glob="$2"
-  local regex
-  regex="^$(glob_to_regex "$glob")"'$'
-  echo "$path" | grep -qE "$regex" 2>/dev/null || return 1
-}
-
-# Returns 0 if file is in scope for this invariant (matches glob, not in exclude list)
-file_in_scope() {
-  local rel_path="$1" inv_json="$2"
-  local applicable_glob
-  applicable_glob=$(echo "$inv_json" | jq -r '.source_glob // .scope_glob // empty')
-  [ -z "$applicable_glob" ] && return 0
-  path_matches "$rel_path" "$applicable_glob" || return 1
-  local excl_count
-  excl_count=$(echo "$inv_json" | jq 'if .scope_glob_exclude then .scope_glob_exclude | length else 0 end' 2>/dev/null || echo 0)
-  for ((e=0; e<excl_count; e++)); do
-    local excl
-    excl=$(echo "$inv_json" | jq -r ".scope_glob_exclude[$e]")
-    path_matches "$rel_path" "$excl" && return 1
-  done
-  return 0
-}
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-extract_imports() {
-  local file="$1"
-  [ -f "$file" ] || return 0
-  python3 "${SCRIPT_DIR}/extract-imports.py" "$file" 2>/dev/null || true
-}
-
-import_is_forbidden() {
-  local import="$1" inv_json="$2"
-  local count
-  count=$(echo "$inv_json" | jq '.forbidden_imports | length' 2>/dev/null || echo 0)
-  # For Java dot-separated imports, also try matching as a path (dots -> slashes)
-  local import_as_path="$import"
-  if [[ "$import" == *.* ]] && [[ "$import" != */* ]]; then
-    import_as_path=$(printf '%s' "$import" | tr '.' '/')
-  fi
-  for ((f=0; f<count; f++)); do
-    local pattern
-    pattern=$(echo "$inv_json" | jq -r ".forbidden_imports[$f]")
-    if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ] \
-       || path_matches "$import_as_path" "$pattern"; then
-      return 0
-    fi
-  done
-  return 1
-}
-
 # --- Build file list ---
-IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
-IGNORED_ARGS=()
-for p in "${IGNORED_PATHS[@]}"; do
-  IGNORED_ARGS+=(-not -path "*/$p/*" -not -name "$p")
-done
-
 declare -a FILES=()
 if $DIFF_MODE; then
   while IFS= read -r f; do
     [ -n "$f" ] || continue
-    # If scope is set, only include diff files under that path
     if [ -n "$SCOPE" ] && [[ ! "$f" == "$SCOPE"* ]]; then
       continue
     fi
@@ -178,22 +49,20 @@ else
   SCAN_ROOT="$PWD"
   [ -n "$SCOPE" ] && SCAN_ROOT="$PWD/$SCOPE"
   while IFS= read -r f; do
-    [ -n "$f" ] && FILES+=("$(echo "$f" | sed "s|$PWD/||")")
-  done < <(find "$SCAN_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.dart" -o -name "*.kt" -o -name "*.kts" -o -name "*.swift" -o -name "*.cs" -o -name "*.php" -o -name "*.rb" \) \
-    "${IGNORED_ARGS[@]}" 2>/dev/null | sort)
+    [ -n "$f" ] && FILES+=("$f")
+  done < <(find_source_files "$SCAN_ROOT")
 fi
 
 files_checked=${#FILES[@]}
 echo "[$TIMESTAMP] scan-project: checking $files_checked files" >> "$DEBUG_LOG"
 
-# Early exit for empty file list (e.g. --diff with no changed files, empty scope)
 if [ "$files_checked" -eq 0 ]; then
   jq -n --arg scope "${SCOPE:-}" \
     '{"scope":$scope,"files_checked":0,"violations":[],"stats":{"total":0,"errors":0,"warnings":0}}'
   exit 0
 fi
 
-# --- Accumulate violations in memory (avoids O(n²) file rewrite per violation) ---
+# --- Evaluate rules ---
 violation_objects=()
 
 invariant_count=$(jq '.invariants | length' "$INVARIANTS_JSON" 2>/dev/null || echo 0)
@@ -204,224 +73,25 @@ for rel_path in "${FILES[@]}"; do
 
   for ((i=0; i<invariant_count; i++)); do
     inv=$(jq ".invariants[$i]" "$INVARIANTS_JSON")
-    rule_id=$(echo "$inv" | jq -r '.id')
-    rule_type=$(echo "$inv" | jq -r '.type')
-    severity=$(echo "$inv" | jq -r '.severity')
-    description=$(echo "$inv" | jq -r '.description')
 
-    file_in_scope "$rel_path" "$inv" || continue
-
-    case "$rule_type" in
-
-      boundary)
-        imports=$(extract_imports "$abs_path")
-        [ -z "$imports" ] && continue
-        while IFS= read -r import; do
-          [ -z "$import" ] && continue
-          if import_is_forbidden "$import" "$inv"; then
-            violation_objects+=("$(jq -n \
-              --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
-              --arg file "$rel_path" --arg imp "$import" \
-              '{rule:$rule,severity:$sev,message:$msg,file:$file,import:$imp}')")
-          fi
-        done <<< "$imports"
-        ;;
-
-      pattern)
-        forbidden_pattern=$(echo "$inv" | jq -r '.forbidden_pattern // empty')
-        [ -z "$forbidden_pattern" ] && continue
-        if grep -qE "$forbidden_pattern" "$abs_path" 2>/dev/null; then
-          line_num=$({ grep -nE "$forbidden_pattern" "$abs_path" 2>/dev/null | head -1 | cut -d: -f1; } || echo "")
-          violation_objects+=("$(jq -n \
-            --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
-            --arg file "$rel_path" --arg line "${line_num}" \
-            '{rule:$rule,severity:$sev,message:$msg,file:$file,line:$line}')")
-        fi
-        ;;
-
-      convention)
-        rule_text=$(echo "$inv" | jq -r '.rule // empty')
-        if echo "$rule_text" | grep -qi "test"; then
-          if [[ "$rel_path" =~ \.(ts|js|py|java|go|rs|dart|kt|kts|swift|cs|php|rb)$ ]] \
-             && [[ ! "$rel_path" =~ \.(test|spec)\. ]] \
-             && [[ ! "$rel_path" =~ \.d\.ts$ ]] \
-             && [[ ! "$rel_path" =~ (Test|Tests|IT|Spec)\.java$ ]] \
-             && [[ ! "$rel_path" =~ _test\.(go|dart|rb)$ ]] \
-             && [[ ! "$rel_path" =~ _spec\.rb$ ]] \
-             && [[ ! "$rel_path" =~ (Test|Tests)\.kt$ ]] \
-             && [[ ! "$rel_path" =~ (Tests)\.swift$ ]] \
-             && [[ ! "$rel_path" =~ (Tests|Test)\.cs$ ]] \
-             && [[ ! "$rel_path" =~ (Test)\.php$ ]]; then
-            base="${abs_path%.*}"
-            ext="${abs_path##*.}"
-            has_test=false
-            if [ -f "${base}.test.${ext}" ] || [ -f "${base}.spec.${ext}" ]; then
-              has_test=true
-            elif [ "$ext" = "java" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}Test.java" ] || \
-                 [ -f "${dir}/${basename_no_ext}Tests.java" ] || \
-                 [ -f "${dir}/${basename_no_ext}IT.java" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/main/java/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|src/main/java|src/test/java|')
-                test_mirror_base="${test_mirror%.*}"
-                if [ -f "${test_mirror_base}Test.java" ] || \
-                   [ -f "${test_mirror_base}Tests.java" ] || \
-                   [ -f "${test_mirror_base}IT.java" ]; then
-                  has_test=true
-                fi
-              fi
-            elif [ "$ext" = "go" ]; then
-              basename_file=$(basename "${abs_path}")
-              dir=$(dirname "${abs_path}")
-              # Go convention: foo.go → foo_test.go in same directory
-              test_name="${basename_file%.go}_test.go"
-              if [ -f "${dir}/${test_name}" ]; then
-                has_test=true
-              fi
-            elif [ "$ext" = "rs" ]; then
-              # Rust convention: inline #[cfg(test)] module or tests/ directory
-              if grep -q '#\[cfg(test)\]' "${abs_path}" 2>/dev/null; then
-                has_test=true
-              fi
-              # Check for integration test mirror: src/foo.rs → tests/foo.rs or tests/test_foo.rs
-              basename_no_ext=$(basename "${base}")
-              if [ -f "$PWD/tests/${basename_no_ext}.rs" ] || \
-                 [ -f "$PWD/tests/test_${basename_no_ext}.rs" ]; then
-                has_test=true
-              fi
-            elif [ "$ext" = "dart" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}_test.dart" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/lib/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|/lib/|/test/|')
-                test_mirror_base="${test_mirror%.*}"
-                if [ -f "${test_mirror_base}_test.dart" ]; then
-                  has_test=true
-                fi
-              fi
-            elif [ "$ext" = "kt" ] || [ "$ext" = "kts" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}Test.kt" ] || \
-                 [ -f "${dir}/${basename_no_ext}Tests.kt" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/main/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|src/main/kotlin|src/test/kotlin|' | sed 's|src/main/java|src/test/java|')
-                test_mirror_base="${test_mirror%.*}"
-                if [ -f "${test_mirror_base}Test.kt" ] || \
-                   [ -f "${test_mirror_base}Tests.kt" ]; then
-                  has_test=true
-                fi
-              fi
-            elif [ "$ext" = "swift" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}Tests.swift" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/Sources/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|/Sources/|/Tests/|')
-                test_mirror_base="${test_mirror%.*}"
-                if [ -f "${test_mirror_base}Tests.swift" ]; then
-                  has_test=true
-                fi
-              fi
-            elif [ "$ext" = "cs" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}Tests.cs" ] || \
-                 [ -f "${dir}/${basename_no_ext}Test.cs" ]; then
-                has_test=true
-              fi
-            elif [ "$ext" = "php" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}Test.php" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|/src/|/tests/|')
-                test_mirror_base="${test_mirror%.*}"
-                if [ -f "${test_mirror_base}Test.php" ]; then
-                  has_test=true
-                fi
-              fi
-            elif [ "$ext" = "rb" ]; then
-              basename_no_ext=$(basename "${base}")
-              dir=$(dirname "${abs_path}")
-              if [ -f "${dir}/${basename_no_ext}_test.rb" ] || \
-                 [ -f "${dir}/${basename_no_ext}_spec.rb" ]; then
-                has_test=true
-              fi
-              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/app/"* ]]; then
-                test_mirror=$(echo "$abs_path" | sed 's|/app/|/test/|')
-                spec_mirror=$(echo "$abs_path" | sed 's|/app/|/spec/|')
-                test_mirror_base="${test_mirror%.*}"
-                spec_mirror_base="${spec_mirror%.*}"
-                if [ -f "${test_mirror_base}_test.rb" ] || \
-                   [ -f "${spec_mirror_base}_spec.rb" ]; then
-                  has_test=true
-                fi
-              fi
-            fi
-            if [ "$has_test" = "false" ]; then
-              violation_objects+=("$(jq -n \
-                --arg rule "$rule_id" --arg sev "$severity" \
-                --arg msg "Missing colocated test file" --arg file "$rel_path" \
-                '{rule:$rule,severity:$sev,message:$msg,file:$file}')")
-            fi
-          fi
-        fi
-        ;;
-
-      dependency)
-        package=$(echo "$inv" | jq -r '.package // empty')
-        [ -z "$package" ] && continue
-        # Check if this file is in an allowed location
-        allowed_count=$(echo "$inv" | jq 'if .allowed_in then .allowed_in | length else 0 end' 2>/dev/null || echo 0)
-        in_allowed=false
-        for ((a=0; a<allowed_count; a++)); do
-          allowed_glob=$(echo "$inv" | jq -r ".allowed_in[$a]")
-          if path_matches "$rel_path" "$allowed_glob"; then
-            in_allowed=true; break
-          fi
-        done
-        $in_allowed && continue
-        # Check if the file imports the package (using AST-aware extractor)
-        file_imports=$(extract_imports "$abs_path")
-        if echo "$file_imports" | grep -qF "$package" 2>/dev/null; then
-          violation_objects+=("$(jq -n \
-            --arg rule "$rule_id" --arg sev "$severity" --arg msg "$description" \
-            --arg file "$rel_path" --arg pkg "$package" \
-            '{rule:$rule,severity:$sev,message:$msg,file:$file,package:$pkg}')")
-        fi
-        ;;
-
-    esac
+    while IFS= read -r viol_json; do
+      [ -z "$viol_json" ] && continue
+      violation_objects+=("$viol_json")
+    done < <(eval_rule_for_file "$abs_path" "$rel_path" "$inv")
   done
 done
 
-# --- Serialize violation array once ---
+# --- Serialize ---
 if [ "${#violation_objects[@]}" -eq 0 ]; then
   VIOLATIONS="[]"
 else
   VIOLATIONS=$(printf '%s\n' "${violation_objects[@]}" | jq -s '.')
 fi
 
-# --- Compute stats ---
 total=$(echo "$VIOLATIONS" | jq 'length')
 errors=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity=="error")] | length')
 warnings=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity=="warning")] | length')
 
-# --- Output ---
 jq -n \
   --arg scope "${SCOPE:-}" \
   --argjson files_checked "$files_checked" \

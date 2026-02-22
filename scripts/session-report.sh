@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Stop hook: summarize session violations and write history snapshot
 
-DEBUG_LOG="/tmp/thymus-debug.log"
-TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 THYMUS_DIR="$PWD/.thymus"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
@@ -14,8 +14,7 @@ echo "[$TIMESTAMP] session-report.sh: session $session_id ended" >> "$DEBUG_LOG"
 
 [ -f "$THYMUS_DIR/baseline.json" ] || exit 0
 
-PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
+CACHE_DIR=$(thymus_cache_dir)
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 
 if [ ! -f "$SESSION_VIOLATIONS" ]; then
@@ -29,21 +28,14 @@ warnings=$(jq '[.[] | select(.severity == "warning")] | length' "$SESSION_VIOLAT
 
 echo "[$TIMESTAMP] session-report: $total total, $errors errors, $warnings warnings" >> "$DEBUG_LOG"
 
-mkdir -p "$THYMUS_DIR/history"
-SNAPSHOT_FILE="$THYMUS_DIR/history/${TIMESTAMP//:/-}.json"
-
-# Compute health score matching generate-report.sh formula
-unique_error_rules=$(jq '[.[] | select(.severity=="error") | .rule] | unique | length' "$SESSION_VIOLATIONS")
-unique_warning_rules=$(jq '[.[] | select(.severity=="warning") | .rule] | unique | length' "$SESSION_VIOLATIONS")
-score=$(echo "$unique_error_rules $unique_warning_rules" | awk '{s=100-$1*10-$2*3; print (s<0?0:s)}')
-
-jq -n \
-  --argjson score "$score" \
-  --arg ts "$TIMESTAMP" \
-  --arg sid "$session_id" \
+# Build scan-compatible JSON for history append
+SCAN_JSON=$(jq -n \
   --argjson violations "$(cat "$SESSION_VIOLATIONS")" \
-  '{score: $score, timestamp: $ts, session_id: $sid, violations: $violations}' \
-  > "$SNAPSHOT_FILE"
+  --argjson total "$total" \
+  --argjson errors "$errors" \
+  --argjson warnings "$warnings" \
+  '{files_checked: ([$violations[].file] | unique | length), violations: $violations, stats: {total: $total, errors: $errors, warnings: $warnings}}')
+echo "$SCAN_JSON" | bash "$SCRIPT_DIR/append-history.sh" --stdin
 
 if [ "$total" -eq 0 ]; then
   summary="thymus: clean session"
@@ -58,10 +50,11 @@ fi
 
 # warn about rules that keep getting violated
 SUGGESTION=""
-ALL_RULES=$(find "$THYMUS_DIR/history" -name "*.json" -print0 2>/dev/null \
-  | xargs -0 cat 2>/dev/null \
-  | jq -rs '[.[].violations[].rule] | group_by(.) | map({rule: .[0], count: length}) | .[] | select(.count >= 3)' \
-  2>/dev/null || true)
+HISTORY_FILE="$THYMUS_DIR/history.jsonl"
+ALL_RULES=""
+if [ -f "$HISTORY_FILE" ]; then
+  ALL_RULES=$(jq -s '[.[].by_rule // {} | to_entries[]] | group_by(.key) | map({rule: .[0].key, count: (map(.value) | add)}) | .[] | select(.count >= 3)' "$HISTORY_FILE" 2>/dev/null || true)
+fi
 if [ -n "$ALL_RULES" ] && [ "$ALL_RULES" != "null" ]; then
   REPEAT_RULES=$(echo "$ALL_RULES" | jq -r '.rule' | tr '\n' ', ' | sed 's/,$//')
   if [ -n "$REPEAT_RULES" ]; then

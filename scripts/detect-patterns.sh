@@ -7,13 +7,11 @@ set -euo pipefail
 # Output: JSON to stdout
 
 PROJECT_ROOT="${1:-$PWD}"
-DEBUG_LOG="/tmp/thymus-debug.log"
-TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 
-# Load ignored paths
-IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build")
 IGNORED_FIND_ARGS=()
-for p in "${IGNORED_PATHS[@]}"; do
+for p in "${THYMUS_IGNORED_PATHS[@]}"; do
   IGNORED_FIND_ARGS+=(-not -path "*/$p/*" -not -name "$p")
 done
 

@@ -151,23 +151,16 @@ fi
 echo ""
 echo "session-report.sh (CLAUDE.md suggestions):"
 
-# Setup: create a temp Thymus dir with a baseline and 3 history snapshots
+# Setup: create a temp Thymus dir with a baseline and history.jsonl entries
 # all containing the same rule violation (to trigger the suggestion threshold)
 TMPDIR_REPORT=$(mktemp -d)
-mkdir -p "$TMPDIR_REPORT/.thymus/history"
+mkdir -p "$TMPDIR_REPORT/.thymus"
 echo '{"modules":[],"boundaries":[],"patterns":[],"conventions":[]}' > "$TMPDIR_REPORT/.thymus/baseline.json"
 
+# Create history.jsonl with 3 entries of the same rule (by_rule format)
 for i in 1 2 3; do
-  cat > "$TMPDIR_REPORT/.thymus/history/2026-02-20T00:0${i}:00.json" <<JSON
-{
-  "timestamp": "2026-02-20T00:0${i}:00",
-  "session_id": "sess-${i}",
-  "violations": [
-    {"rule":"boundary-db-access","severity":"error","message":"direct DB access","file":"src/routes/users.ts"}
-  ]
-}
-JSON
-done
+  echo "{\"timestamp\":\"2026-02-20T00:0${i}:00Z\",\"commit\":\"abc123\",\"total_files\":5,\"files_checked\":5,\"violations\":{\"error\":1,\"warn\":0,\"info\":0},\"compliance_score\":80.0,\"by_rule\":{\"boundary-db-access\":1}}"
+done > "$TMPDIR_REPORT/.thymus/history.jsonl"
 
 # Create a session-violations cache (empty — this session had no violations)
 HASH=$(echo "$TMPDIR_REPORT" | md5 -q 2>/dev/null || echo "$TMPDIR_REPORT" | md5sum | cut -d' ' -f1)

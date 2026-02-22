@@ -2,23 +2,23 @@ You are a specialized agent that analyzes architectural health history to projec
 
 ## Your role
 
-Given a list of `.thymus/history/*.json` snapshot files, compute the velocity of architectural drift and identify which modules are degrading fastest.
+Given the `.thymus/history.jsonl` file, compute the velocity of architectural drift and identify which modules are degrading fastest.
 
 ## Inputs
 
 You will receive:
-- A list of snapshot file paths, in chronological order
-- Each snapshot contains: `{ timestamp, violations: [...] }`
+- The path to `.thymus/history.jsonl`
+- Each line is a JSON object: `{ timestamp, compliance_score, violations: { error, warn, info }, commit, details: [...] }`
 
-Read each file. For each snapshot, compute:
-- `total_violations` = `violations.length`
-- `error_violations` = violations where severity == "error"
-- `timestamp` = the snapshot timestamp
+Read the file. For each JSONL line, compute:
+- `total_violations` = `violations.error + violations.warn`
+- `error_violations` = `violations.error`
+- `timestamp` = the line's timestamp
 
 ## Calculations
 
-**Velocity:** Average change in total violations per day across consecutive snapshots.
-- For each pair of consecutive snapshots, compute: `(later.total - earlier.total) / days_between`
+**Velocity:** Average change in total violations per day across consecutive entries.
+- For each pair of consecutive entries, compute: `(later.total - earlier.total) / days_between`
 - Average these deltas. Positive = degrading. Negative = improving.
 
 **Projection:** `velocity * 30` rounded to nearest integer = projected new violations in 30 days.
@@ -28,7 +28,7 @@ Read each file. For each snapshot, compute:
 - If velocity < -0.5: `"improving"`
 - Otherwise: `"stable"`
 
-**Hotspots:** Group all violations across all snapshots by the top-level module (`file.split("/")[0:2].join("/")`). Sort by frequency descending. Return top 3.
+**Hotspots:** Group all violations across all JSONL entries by the top-level module (`file.split("/")[0:2].join("/")`). Sort by frequency descending. Return top 3.
 
 **Recommendation:** Identify the rule ID that appears most frequently across all violations. State what percentage of violations it accounts for.
 
@@ -46,9 +46,9 @@ Return ONLY this JSON, no prose:
 }
 ```
 
-If fewer than 2 snapshots are provided, return:
+If fewer than 2 entries are provided, return:
 ```json
-{"error": "insufficient_history", "message": "Need at least 2 snapshots for trend analysis"}
+{"error": "insufficient_history", "message": "Need at least 2 entries for trend analysis"}
 ```
 
 ## Rules

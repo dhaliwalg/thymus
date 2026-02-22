@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thymus Dependency Graph</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      background: #1e1e2e;
+      color: #cdd6f4;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .container {
+      display: flex;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* --- Graph area --- */
+    .graph-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    .graph-area svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* --- Header overlay --- */
+    .graph-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      pointer-events: auto;
+    }
+    .brand-mark {
+      width: 26px; height: 26px;
+      background: #cdd6f4;
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .brand-mark svg path { stroke: #1e1e2e; }
+    .brand-mark svg circle { fill: #1e1e2e; }
+    .brand-name {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #cdd6f4;
+    }
+    .brand-sub {
+      font-size: 11px;
+      color: #6c7086;
+      margin-left: 4px;
+    }
+
+    /* --- Legend --- */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: rgba(30, 30, 46, 0.9);
+      border: 1px solid #313244;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 11px;
+      color: #a6adc8;
+      z-index: 10;
+    }
+    .legend-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6c7086;
+      margin-bottom: 2px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-swatch {
+      width: 18px;
+      height: 3px;
+      border-radius: 1.5px;
+      flex-shrink: 0;
+    }
+    .legend-circle {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* --- Empty state --- */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #6c7086;
+    }
+    .empty-state .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.4;
+    }
+    .empty-state h2 {
+      font-size: 18px;
+      font-weight: 500;
+      color: #a6adc8;
+      margin-bottom: 8px;
+    }
+    .empty-state p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* --- Sidebar / detail panel --- */
+    .sidebar {
+      width: 340px;
+      background: #181825;
+      border-left: 1px solid #313244;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.2s ease;
+    }
+    .sidebar.collapsed {
+      width: 0;
+      border-left: none;
+    }
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid #313244;
+      flex-shrink: 0;
+    }
+    .sidebar-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #6c7086;
+    }
+    .sidebar-close {
+      background: none;
+      border: none;
+      color: #6c7086;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .sidebar-close:hover {
+      background: #313244;
+      color: #cdd6f4;
+    }
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+    }
+    .sidebar-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #45475a;
+      font-size: 12px;
+      text-align: center;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    /* Detail content */
+    .detail-module-name {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 14px;
+      font-weight: 600;
+      color: #cdd6f4;
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .detail-stat {
+      font-size: 11px;
+      color: #6c7086;
+      margin-bottom: 14px;
+    }
+    .detail-stat .violation-count {
+      color: #f38ba8;
+      font-weight: 600;
+    }
+    .detail-section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6c7086;
+      margin-bottom: 6px;
+      margin-top: 16px;
+    }
+    .detail-file-list {
+      list-style: none;
+    }
+    .detail-file-list li {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 11px;
+      color: #a6adc8;
+      padding: 5px 0;
+      border-bottom: 1px solid #313244;
+    }
+    .detail-file-list li:last-child {
+      border-bottom: none;
+    }
+
+    /* Edge detail */
+    .detail-edge-label {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 12px;
+      color: #cdd6f4;
+      margin-bottom: 4px;
+    }
+    .detail-edge-direction {
+      font-size: 11px;
+      color: #6c7086;
+      margin-bottom: 14px;
+    }
+    .detail-violation-tag {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 5px;
+      margin-bottom: 14px;
+    }
+    .detail-violation-tag.violation {
+      background: rgba(243, 139, 168, 0.15);
+      color: #f38ba8;
+    }
+    .detail-violation-tag.clean {
+      background: rgba(166, 227, 161, 0.15);
+      color: #a6e3a1;
+    }
+    .detail-rule-id {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 11px;
+      color: #f38ba8;
+      padding: 4px 0;
+      border-bottom: 1px solid #313244;
+    }
+    .detail-rule-id:last-child {
+      border-bottom: none;
+    }
+    .detail-import-item {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 10px;
+      color: #a6adc8;
+      padding: 5px 0;
+      border-bottom: 1px solid #313244;
+    }
+    .detail-import-item:last-child {
+      border-bottom: none;
+    }
+    .detail-import-source {
+      color: #89b4fa;
+    }
+    .detail-import-arrow {
+      color: #45475a;
+      margin: 0 4px;
+    }
+    .detail-import-target {
+      color: #a6adc8;
+    }
+
+    /* --- Node tooltip / badge --- */
+    .node-badge {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(243, 139, 168, 0.9);
+      color: #1e1e2e;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 8px;
+      z-index: 20;
+      white-space: nowrap;
+    }
+
+    /* --- Clean banner --- */
+    .clean-banner {
+      position: absolute;
+      top: 16px;
+      right: 24px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #a6e3a1;
+      background: rgba(166, 227, 161, 0.1);
+      padding: 6px 12px;
+      border-radius: 6px;
+      z-index: 10;
+    }
+    .clean-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #a6e3a1;
+    }
+
+    /* SVG styles */
+    .edge-line {
+      stroke-width: 1.5;
+      fill: none;
+      cursor: pointer;
+      transition: stroke-width 0.15s ease;
+    }
+    .edge-line:hover {
+      stroke-width: 3;
+    }
+    .edge-line.clean { stroke: #585b70; }
+    .edge-line.violation { stroke: #f38ba8; }
+    .edge-line.dimmed { opacity: 0.12; }
+    .edge-line.highlighted { stroke-width: 2.5; }
+
+    .node-circle {
+      cursor: pointer;
+      transition: r 0.15s ease;
+    }
+    .node-circle.default { fill: #89b4fa; }
+    .node-circle.has-violations { fill: #cba6f7; }
+    .node-circle.dimmed { opacity: 0.15; }
+
+    .node-label {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      font-size: 10px;
+      fill: #a6adc8;
+      pointer-events: none;
+      user-select: none;
+    }
+    .node-label.dimmed { opacity: 0.15; }
+  </style>
+</head>
+<body>
+
+<script>
+const GRAPH_DATA = /*GRAPH_DATA*/{"modules":[],"edges":[]};
+</script>
+
+<div class="container">
+  <div class="graph-area" id="graphArea">
+    <div class="graph-header">
+      <div class="brand">
+        <div class="brand-mark">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M7 1.5L12.5 4.5V9.5L7 12.5L1.5 9.5V4.5L7 1.5Z" stroke="#1e1e2e" stroke-width="1.25" fill="none" stroke-linejoin="round"/>
+            <circle cx="7" cy="7" r="1.75" fill="#1e1e2e"/>
+          </svg>
+        </div>
+        <span class="brand-name">Thymus</span>
+        <span class="brand-sub">Dependency Graph</span>
+      </div>
+    </div>
+    <svg id="graphSvg"></svg>
+  </div>
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title" id="sidebarTitle">Details</span>
+      <button class="sidebar-close" id="sidebarClose" title="Close panel">&times;</button>
+    </div>
+    <div class="sidebar-body" id="sidebarBody">
+      <div class="sidebar-placeholder">
+        Click a node or edge<br>to view details
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var data = GRAPH_DATA;
+  var modules = data.modules || [];
+  var edges = data.edges || [];
+
+  var graphArea = document.getElementById('graphArea');
+  var svg = document.getElementById('graphSvg');
+  var sidebar = document.getElementById('sidebar');
+  var sidebarTitle = document.getElementById('sidebarTitle');
+  var sidebarBody = document.getElementById('sidebarBody');
+  var sidebarClose = document.getElementById('sidebarClose');
+
+  // --- Edge case: empty graph ---
+  if (modules.length === 0) {
+    graphArea.innerHTML =
+      '<div class="graph-header"><div class="brand">' +
+        '<div class="brand-mark"><svg width="14" height="14" viewBox="0 0 14 14" fill="none">' +
+        '<path d="M7 1.5L12.5 4.5V9.5L7 12.5L1.5 9.5V4.5L7 1.5Z" stroke="#1e1e2e" stroke-width="1.25" fill="none" stroke-linejoin="round"/>' +
+        '<circle cx="7" cy="7" r="1.75" fill="#1e1e2e"/></svg></div>' +
+        '<span class="brand-name">Thymus</span>' +
+        '<span class="brand-sub">Dependency Graph</span></div></div>' +
+      '<div class="empty-state">' +
+        '<div class="empty-icon">&#x2B21;</div>' +
+        '<h2>No source files found</h2>' +
+        '<p>Run /thymus:baseline to initialize your project,<br>then /thymus:graph to generate the dependency graph.</p>' +
+      '</div>';
+    sidebar.classList.add('collapsed');
+    return;
+  }
+
+  // --- Check if there are any violations ---
+  var hasAnyViolations = false;
+  for (var i = 0; i < edges.length; i++) {
+    if (edges[i].violation) { hasAnyViolations = true; break; }
+  }
+  for (var i = 0; i < modules.length; i++) {
+    if (modules[i].violations > 0) { hasAnyViolations = true; break; }
+  }
+
+  // Add clean banner if no violations
+  if (!hasAnyViolations && modules.length > 0) {
+    var banner = document.createElement('div');
+    banner.className = 'clean-banner';
+    banner.innerHTML = '<span class="clean-dot"></span>No violations detected';
+    graphArea.appendChild(banner);
+  }
+
+  // --- Build node index ---
+  var nodeMap = {};
+  for (var i = 0; i < modules.length; i++) {
+    nodeMap[modules[i].id] = i;
+  }
+
+  // --- Fruchterman-Reingold force-directed layout ---
+  var W = graphArea.clientWidth || 900;
+  var H = graphArea.clientHeight || 600;
+  var area = W * H;
+  var k = Math.sqrt(area / Math.max(modules.length, 1));
+  var ITERATIONS = 300;
+  var COOLING = 0.97;
+  var PADDING = 80;
+
+  // Initialize positions: distribute along a circle for stability
+  var nodes = [];
+  for (var i = 0; i < modules.length; i++) {
+    var angle = (2 * Math.PI * i) / modules.length;
+    var cx = W / 2;
+    var cy = H / 2;
+    var radius = Math.min(W, H) * 0.3;
+    nodes.push({
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+      dx: 0,
+      dy: 0,
+      module: modules[i]
+    });
+  }
+
+  // Single-node case: center it
+  if (modules.length === 1) {
+    nodes[0].x = W / 2;
+    nodes[0].y = H / 2;
+  }
+
+  // Run simulation
+  if (modules.length > 1) {
+    var temp = W / 4;
+    for (var iter = 0; iter < ITERATIONS; iter++) {
+      // Reset displacements
+      for (var i = 0; i < nodes.length; i++) {
+        nodes[i].dx = 0;
+        nodes[i].dy = 0;
+      }
+
+      // Repulsive forces between all pairs
+      for (var i = 0; i < nodes.length; i++) {
+        for (var j = i + 1; j < nodes.length; j++) {
+          var dx = nodes[i].x - nodes[j].x;
+          var dy = nodes[i].y - nodes[j].y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 0.01) dist = 0.01;
+          var repForce = (k * k) / dist;
+          var fx = (dx / dist) * repForce;
+          var fy = (dy / dist) * repForce;
+          nodes[i].dx += fx;
+          nodes[i].dy += fy;
+          nodes[j].dx -= fx;
+          nodes[j].dy -= fy;
+        }
+      }
+
+      // Attractive forces along edges
+      for (var e = 0; e < edges.length; e++) {
+        var srcIdx = nodeMap[edges[e].from];
+        var tgtIdx = nodeMap[edges[e].to];
+        if (srcIdx === undefined || tgtIdx === undefined) continue;
+        var dx = nodes[srcIdx].x - nodes[tgtIdx].x;
+        var dy = nodes[srcIdx].y - nodes[tgtIdx].y;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 0.01) dist = 0.01;
+        var attForce = (dist * dist) / k;
+        var fx = (dx / dist) * attForce;
+        var fy = (dy / dist) * attForce;
+        nodes[srcIdx].dx -= fx;
+        nodes[srcIdx].dy -= fy;
+        nodes[tgtIdx].dx += fx;
+        nodes[tgtIdx].dy += fy;
+      }
+
+      // Apply displacements capped by temperature
+      for (var i = 0; i < nodes.length; i++) {
+        var disp = Math.sqrt(nodes[i].dx * nodes[i].dx + nodes[i].dy * nodes[i].dy);
+        if (disp < 0.01) disp = 0.01;
+        var cappedDisp = Math.min(disp, temp);
+        nodes[i].x += (nodes[i].dx / disp) * cappedDisp;
+        nodes[i].y += (nodes[i].dy / disp) * cappedDisp;
+        // Keep within bounds
+        nodes[i].x = Math.max(PADDING, Math.min(W - PADDING, nodes[i].x));
+        nodes[i].y = Math.max(PADDING, Math.min(H - PADDING, nodes[i].y));
+      }
+
+      temp *= COOLING;
+    }
+  }
+
+  // --- Node sizing: radius proportional to file_count ---
+  var minR = 8;
+  var maxR = 28;
+  var maxFiles = 1;
+  for (var i = 0; i < modules.length; i++) {
+    if (modules[i].file_count > maxFiles) maxFiles = modules[i].file_count;
+  }
+  function nodeRadius(mod) {
+    if (maxFiles <= 1) return (minR + maxR) / 2;
+    return minR + ((mod.file_count - 1) / (maxFiles - 1)) * (maxR - minR);
+  }
+
+  // --- SVG rendering ---
+  var NS = 'http://www.w3.org/2000/svg';
+
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+  // Arrow marker definitions
+  var defs = document.createElementNS(NS, 'defs');
+
+  var markerClean = document.createElementNS(NS, 'marker');
+  markerClean.setAttribute('id', 'arrow-clean');
+  markerClean.setAttribute('viewBox', '0 0 10 10');
+  markerClean.setAttribute('refX', '10');
+  markerClean.setAttribute('refY', '5');
+  markerClean.setAttribute('markerWidth', '8');
+  markerClean.setAttribute('markerHeight', '8');
+  markerClean.setAttribute('orient', 'auto-start-reverse');
+  var pathClean = document.createElementNS(NS, 'path');
+  pathClean.setAttribute('d', 'M0,2 L10,5 L0,8 Z');
+  pathClean.setAttribute('fill', '#585b70');
+  markerClean.appendChild(pathClean);
+  defs.appendChild(markerClean);
+
+  var markerViol = document.createElementNS(NS, 'marker');
+  markerViol.setAttribute('id', 'arrow-violation');
+  markerViol.setAttribute('viewBox', '0 0 10 10');
+  markerViol.setAttribute('refX', '10');
+  markerViol.setAttribute('refY', '5');
+  markerViol.setAttribute('markerWidth', '8');
+  markerViol.setAttribute('markerHeight', '8');
+  markerViol.setAttribute('orient', 'auto-start-reverse');
+  var pathViol = document.createElementNS(NS, 'path');
+  pathViol.setAttribute('d', 'M0,2 L10,5 L0,8 Z');
+  pathViol.setAttribute('fill', '#f38ba8');
+  markerViol.appendChild(pathViol);
+  defs.appendChild(markerViol);
+
+  svg.appendChild(defs);
+
+  // Edge group (rendered below nodes)
+  var edgeGroup = document.createElementNS(NS, 'g');
+  edgeGroup.setAttribute('class', 'edges');
+  svg.appendChild(edgeGroup);
+
+  // Node group
+  var nodeGroup = document.createElementNS(NS, 'g');
+  nodeGroup.setAttribute('class', 'nodes');
+  svg.appendChild(nodeGroup);
+
+  // Render edges
+  var edgeElements = [];
+  for (var e = 0; e < edges.length; e++) {
+    var srcIdx = nodeMap[edges[e].from];
+    var tgtIdx = nodeMap[edges[e].to];
+    if (srcIdx === undefined || tgtIdx === undefined) continue;
+
+    var src = nodes[srcIdx];
+    var tgt = nodes[tgtIdx];
+    var isViol = edges[e].violation;
+
+    // Shorten line to stop at node edge (account for radius + arrow)
+    var r1 = nodeRadius(src.module);
+    var r2 = nodeRadius(tgt.module);
+    var dx = tgt.x - src.x;
+    var dy = tgt.y - src.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.01) dist = 0.01;
+    var ux = dx / dist;
+    var uy = dy / dist;
+
+    var x1 = src.x + ux * (r1 + 2);
+    var y1 = src.y + uy * (r1 + 2);
+    var x2 = tgt.x - ux * (r2 + 10);
+    var y2 = tgt.y - uy * (r2 + 10);
+
+    var line = document.createElementNS(NS, 'line');
+    line.setAttribute('x1', x1);
+    line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2);
+    line.setAttribute('y2', y2);
+    line.setAttribute('class', 'edge-line ' + (isViol ? 'violation' : 'clean'));
+    line.setAttribute('marker-end', 'url(#arrow-' + (isViol ? 'violation' : 'clean') + ')');
+    line.dataset.edgeIndex = e;
+    edgeGroup.appendChild(line);
+    edgeElements.push(line);
+  }
+
+  // Render nodes
+  var nodeCircles = [];
+  var nodeLabels = [];
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    var r = nodeRadius(n.module);
+    var hasViol = n.module.violations > 0;
+
+    // Circle
+    var circle = document.createElementNS(NS, 'circle');
+    circle.setAttribute('cx', n.x);
+    circle.setAttribute('cy', n.y);
+    circle.setAttribute('r', r);
+    circle.setAttribute('class', 'node-circle ' + (hasViol ? 'has-violations' : 'default'));
+    circle.dataset.nodeIndex = i;
+    nodeGroup.appendChild(circle);
+    nodeCircles.push(circle);
+
+    // Label
+    var label = document.createElementNS(NS, 'text');
+    label.setAttribute('x', n.x);
+    label.setAttribute('y', n.y + r + 14);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('class', 'node-label');
+    label.textContent = n.module.id;
+    label.dataset.nodeIndex = i;
+    nodeGroup.appendChild(label);
+    nodeLabels.push(label);
+  }
+
+  // --- Legend ---
+  var legend = document.createElement('div');
+  legend.className = 'legend';
+  legend.innerHTML =
+    '<div class="legend-title">Legend</div>' +
+    '<div class="legend-item"><div class="legend-circle" style="background:#89b4fa"></div>Module (clean)</div>' +
+    '<div class="legend-item"><div class="legend-circle" style="background:#cba6f7"></div>Module (has violations)</div>' +
+    '<div class="legend-item"><div class="legend-swatch" style="background:#585b70"></div>Clean dependency</div>' +
+    '<div class="legend-item"><div class="legend-swatch" style="background:#f38ba8"></div>Boundary violation</div>' +
+    '<div class="legend-item" style="margin-top:4px;font-size:10px;color:#45475a">Node size = file count</div>';
+  graphArea.appendChild(legend);
+
+  // --- Interaction state ---
+  var activeBadge = null;
+  var selectedNode = null;
+  var selectedEdge = null;
+
+  // Build adjacency for highlight: which edges connect to which nodes
+  var nodeEdges = {};
+  for (var i = 0; i < modules.length; i++) nodeEdges[i] = [];
+  for (var e = 0; e < edges.length; e++) {
+    var srcIdx = nodeMap[edges[e].from];
+    var tgtIdx = nodeMap[edges[e].to];
+    if (srcIdx !== undefined) nodeEdges[srcIdx].push(e);
+    if (tgtIdx !== undefined) nodeEdges[tgtIdx].push(e);
+  }
+
+  function clearHighlights() {
+    for (var i = 0; i < nodeCircles.length; i++) {
+      nodeCircles[i].classList.remove('dimmed');
+      nodeLabels[i].classList.remove('dimmed');
+    }
+    for (var i = 0; i < edgeElements.length; i++) {
+      edgeElements[i].classList.remove('dimmed');
+      edgeElements[i].classList.remove('highlighted');
+    }
+    if (activeBadge) {
+      activeBadge.remove();
+      activeBadge = null;
+    }
+  }
+
+  function highlightNode(idx) {
+    // Dim everything first
+    for (var i = 0; i < nodeCircles.length; i++) {
+      nodeCircles[i].classList.add('dimmed');
+      nodeLabels[i].classList.add('dimmed');
+    }
+    for (var i = 0; i < edgeElements.length; i++) {
+      edgeElements[i].classList.add('dimmed');
+    }
+
+    // Un-dim the selected node
+    nodeCircles[idx].classList.remove('dimmed');
+    nodeLabels[idx].classList.remove('dimmed');
+
+    // Un-dim connected edges and their other endpoints
+    var connEdges = nodeEdges[idx] || [];
+    for (var i = 0; i < connEdges.length; i++) {
+      var eIdx = connEdges[i];
+      edgeElements[eIdx].classList.remove('dimmed');
+      edgeElements[eIdx].classList.add('highlighted');
+      // Un-dim the other node
+      var edge = edges[eIdx];
+      var otherIdx = nodeMap[edge.from] === idx ? nodeMap[edge.to] : nodeMap[edge.from];
+      if (otherIdx !== undefined) {
+        nodeCircles[otherIdx].classList.remove('dimmed');
+        nodeLabels[otherIdx].classList.remove('dimmed');
+      }
+    }
+
+    // Show violation count badge if violations > 0
+    if (modules[idx].violations > 0) {
+      var n = nodes[idx];
+      var r = nodeRadius(n.module);
+      var badge = document.createElement('div');
+      badge.className = 'node-badge';
+      // Convert SVG coordinates to screen coordinates
+      var svgRect = svg.getBoundingClientRect();
+      var scaleX = svgRect.width / W;
+      var scaleY = svgRect.height / H;
+      badge.style.left = (svgRect.left + n.x * scaleX - 4 + r * scaleX) + 'px';
+      badge.style.top = (svgRect.top + n.y * scaleY - 18) + 'px';
+      badge.textContent = modules[idx].violations;
+      document.body.appendChild(badge);
+      activeBadge = badge;
+    }
+  }
+
+  // --- Node hover ---
+  for (var i = 0; i < nodeCircles.length; i++) {
+    (function(idx) {
+      nodeCircles[idx].addEventListener('mouseenter', function() {
+        if (selectedNode === null && selectedEdge === null) {
+          highlightNode(idx);
+        }
+      });
+      nodeCircles[idx].addEventListener('mouseleave', function() {
+        if (selectedNode === null && selectedEdge === null) {
+          clearHighlights();
+        }
+      });
+    })(i);
+  }
+
+  // --- Node click ---
+  for (var i = 0; i < nodeCircles.length; i++) {
+    (function(idx) {
+      nodeCircles[idx].addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        selectedEdge = null;
+        selectedNode = idx;
+        clearHighlights();
+        highlightNode(idx);
+        showNodeDetail(idx);
+      });
+    })(i);
+  }
+
+  // --- Edge click ---
+  for (var i = 0; i < edgeElements.length; i++) {
+    (function(eIdx) {
+      edgeElements[eIdx].addEventListener('click', function(ev) {
+        ev.stopPropagation();
+        selectedNode = null;
+        selectedEdge = eIdx;
+        clearHighlights();
+        edgeElements[eIdx].classList.add('highlighted');
+        showEdgeDetail(eIdx);
+      });
+    })(i);
+  }
+
+  // --- Click on background to deselect ---
+  graphArea.addEventListener('click', function() {
+    selectedNode = null;
+    selectedEdge = null;
+    clearHighlights();
+    resetSidebar();
+  });
+
+  // --- Sidebar close ---
+  sidebarClose.addEventListener('click', function() {
+    selectedNode = null;
+    selectedEdge = null;
+    clearHighlights();
+    resetSidebar();
+  });
+
+  function resetSidebar() {
+    sidebarTitle.textContent = 'Details';
+    sidebarBody.innerHTML = '<div class="sidebar-placeholder">Click a node or edge<br>to view details</div>';
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+  }
+
+  function showNodeDetail(idx) {
+    var mod = modules[idx];
+    sidebarTitle.textContent = 'Module';
+
+    var html = '<div class="detail-module-name">' + escapeHtml(mod.id) + '</div>';
+    html += '<div class="detail-stat">' + mod.file_count + ' file' + (mod.file_count !== 1 ? 's' : '');
+    if (mod.violations > 0) {
+      html += ' &middot; <span class="violation-count">' + mod.violations + ' violation' + (mod.violations !== 1 ? 's' : '') + '</span>';
+    }
+    html += '</div>';
+
+    // Files
+    html += '<div class="detail-section-label">Files</div>';
+    html += '<ul class="detail-file-list">';
+    var files = mod.files || [];
+    for (var i = 0; i < files.length; i++) {
+      html += '<li>' + escapeHtml(files[i]) + '</li>';
+    }
+    if (files.length === 0) {
+      html += '<li style="color:#45475a">No files listed</li>';
+    }
+    html += '</ul>';
+
+    // Connected edges
+    var connEdges = nodeEdges[idx] || [];
+    if (connEdges.length > 0) {
+      html += '<div class="detail-section-label">Dependencies</div>';
+      html += '<ul class="detail-file-list">';
+      for (var i = 0; i < connEdges.length; i++) {
+        var edge = edges[connEdges[i]];
+        var direction = edge.from === mod.id ? 'imports' : 'imported by';
+        var other = edge.from === mod.id ? edge.to : edge.from;
+        var violMark = edge.violation ? ' <span style="color:#f38ba8">&#9679;</span>' : '';
+        html += '<li>' + escapeHtml(other) + ' <span style="color:#45475a">(' + direction + ')</span>' + violMark + '</li>';
+      }
+      html += '</ul>';
+    }
+
+    sidebarBody.innerHTML = html;
+  }
+
+  function showEdgeDetail(eIdx) {
+    var edge = edges[eIdx];
+    sidebarTitle.textContent = 'Edge';
+
+    var html = '<div class="detail-edge-label">' + escapeHtml(edge.from) + '</div>';
+    html += '<div class="detail-edge-direction">&#8594; ' + escapeHtml(edge.to) + '</div>';
+
+    if (edge.violation) {
+      html += '<div class="detail-violation-tag violation">Violation</div>';
+    } else {
+      html += '<div class="detail-violation-tag clean">Clean</div>';
+    }
+
+    // Rule IDs
+    var ruleIds = edge.rule_ids || [];
+    if (ruleIds.length > 0) {
+      html += '<div class="detail-section-label">Rule IDs</div>';
+      for (var i = 0; i < ruleIds.length; i++) {
+        html += '<div class="detail-rule-id">' + escapeHtml(ruleIds[i]) + '</div>';
+      }
+    }
+
+    // Imports
+    var imports = edge.imports || [];
+    if (imports.length > 0) {
+      html += '<div class="detail-section-label">Imports (' + imports.length + ')</div>';
+      for (var i = 0; i < imports.length; i++) {
+        var imp = imports[i];
+        html += '<div class="detail-import-item">' +
+          '<span class="detail-import-source">' + escapeHtml(imp.source || '') + '</span>' +
+          '<span class="detail-import-arrow">&#8594;</span>' +
+          '<span class="detail-import-target">' + escapeHtml(imp.target || '') + '</span>' +
+          '</div>';
+      }
+    }
+
+    sidebarBody.innerHTML = html;
+  }
+
+  // --- Handle window resize ---
+  var resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+      // Update badge position if active
+      if (activeBadge && selectedNode !== null) {
+        var n = nodes[selectedNode];
+        var r = nodeRadius(n.module);
+        var svgRect = svg.getBoundingClientRect();
+        var scaleX = svgRect.width / W;
+        var scaleY = svgRect.height / H;
+        activeBadge.style.left = (svgRect.left + n.x * scaleX - 4 + r * scaleX) + 'px';
+        activeBadge.style.top = (svgRect.top + n.y * scaleY - 18) + 'px';
+      }
+    }, 100);
+  });
+
+})();
+</script>
+
+</body>
+</html>
