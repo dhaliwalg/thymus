@@ -292,3 +292,302 @@ rust:
       - "**/ffi/**"
       - "**/bindings/**"
       - "**/sys/**"
+
+dart:
+  - id: dart-test-colocation
+    type: convention
+    severity: warning
+    description: "Dart source files should have corresponding test files"
+    rule: "For every lib/**/*.dart, there should be a test/**/*_test.dart"
+
+  - id: dart-no-presentation-imports-data
+    type: boundary
+    severity: error
+    description: "Presentation layer must not import data layer directly"
+    source_glob: "lib/presentation/**/*.dart"
+    forbidden_imports:
+      - "lib/data/**"
+    reasoning: "Presentation should communicate with data through domain/service layers"
+
+  - id: dart-no-buildcontext-outside-widgets
+    type: pattern
+    severity: warning
+    description: "BuildContext should only be used in widget/screen/page files"
+    scope_glob: "lib/**/*.dart"
+    forbidden_pattern: "BuildContext"
+    scope_glob_exclude:
+      - "lib/widgets/**"
+      - "lib/screens/**"
+      - "lib/pages/**"
+      - "lib/presentation/**"
+
+  - id: dart-repository-no-flutter
+    type: boundary
+    severity: error
+    description: "Repository layer must not depend on Flutter framework"
+    source_glob: "lib/repositories/**/*.dart"
+    forbidden_imports:
+      - "package:flutter/"
+    reasoning: "Repositories should be pure Dart for testability and platform independence"
+
+flutter:
+  - id: dart-test-colocation
+    type: convention
+    severity: warning
+    description: "Dart source files should have corresponding test files"
+    rule: "For every lib/**/*.dart, there should be a test/**/*_test.dart"
+
+  - id: dart-no-presentation-imports-data
+    type: boundary
+    severity: error
+    description: "Presentation layer must not import data layer directly"
+    source_glob: "lib/presentation/**/*.dart"
+    forbidden_imports:
+      - "lib/data/**"
+
+  - id: dart-repository-no-flutter
+    type: boundary
+    severity: error
+    description: "Repository layer must not depend on Flutter framework"
+    source_glob: "lib/repositories/**/*.dart"
+    forbidden_imports:
+      - "package:flutter/"
+
+kotlin:
+  - id: kotlin-test-colocation
+    type: convention
+    severity: warning
+    description: "Kotlin source files should have corresponding test files"
+    rule: "For every src/main/kotlin/**/*.kt, there should be a src/test/kotlin/**/*Test.kt"
+
+  - id: kotlin-handler-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers/handlers must not import persistence packages directly"
+    source_glob: "**/controller/**/*.kt"
+    forbidden_imports:
+      - "javax.persistence"
+      - "org.springframework.data.jpa"
+      - "org.jetbrains.exposed"
+    reasoning: "Controllers should delegate to services, not access the data layer directly"
+
+  - id: kotlin-no-runblocking-in-handlers
+    type: pattern
+    severity: warning
+    description: "Avoid runBlocking in controllers and handlers — use suspend functions"
+    scope_glob: "**/controller/**/*.kt"
+    forbidden_pattern: "runBlocking"
+
+ktor:
+  - id: kotlin-test-colocation
+    type: convention
+    severity: warning
+    description: "Kotlin source files should have corresponding test files"
+    rule: "For every src/main/kotlin/**/*.kt, there should be a src/test/kotlin/**/*Test.kt"
+
+  - id: kotlin-handler-no-direct-db
+    type: boundary
+    severity: error
+    description: "Route handlers must not import persistence packages directly"
+    source_glob: "**/handler/**/*.kt"
+    forbidden_imports:
+      - "org.jetbrains.exposed"
+      - "org.ktorm"
+    reasoning: "Handlers should delegate to service or repository layers"
+
+  - id: kotlin-no-runblocking-in-handlers
+    type: pattern
+    severity: warning
+    description: "Avoid runBlocking in route handlers — use suspend functions"
+    scope_glob: "**/handler/**/*.kt"
+    forbidden_pattern: "runBlocking"
+
+swift:
+  - id: swift-test-colocation
+    type: convention
+    severity: warning
+    description: "Swift source files should have corresponding test files"
+    rule: "For every Sources/**/*.swift, there should be a Tests/**/*Tests.swift"
+
+  - id: swift-view-no-networking
+    type: boundary
+    severity: error
+    description: "Views must not perform networking directly"
+    source_glob: "**/Views/**/*.swift"
+    forbidden_imports:
+      - "Alamofire"
+    reasoning: "Views should receive data through view models or presenters"
+
+  - id: swift-view-no-urlsession
+    type: pattern
+    severity: error
+    description: "Views must not use URLSession directly"
+    scope_glob: "**/Views/**/*.swift"
+    forbidden_pattern: "URLSession"
+
+vapor:
+  - id: swift-test-colocation
+    type: convention
+    severity: warning
+    description: "Swift source files should have corresponding test files"
+    rule: "For every Sources/**/*.swift, there should be a Tests/**/*Tests.swift"
+
+  - id: swift-view-no-networking
+    type: boundary
+    severity: error
+    description: "Views must not perform networking directly"
+    source_glob: "**/Views/**/*.swift"
+    forbidden_imports:
+      - "Alamofire"
+
+csharp:
+  - id: csharp-test-colocation
+    type: convention
+    severity: warning
+    description: "C# source files should have corresponding test files"
+    rule: "For every **/*.cs (excluding tests), there should be a **/*Tests.cs"
+
+  - id: csharp-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not import database packages directly"
+    source_glob: "**/Controllers/**/*.cs"
+    forbidden_imports:
+      - "System.Data.SqlClient"
+      - "Microsoft.EntityFrameworkCore"
+      - "Dapper"
+    reasoning: "Controllers should delegate to services or repositories"
+
+  - id: csharp-no-god-using
+    type: pattern
+    severity: warning
+    description: "Files with excessive using statements may indicate poor separation of concerns"
+    scope_glob: "**/*.cs"
+    forbidden_pattern: "^using\\s"
+
+aspnet:
+  - id: csharp-test-colocation
+    type: convention
+    severity: warning
+    description: "C# source files should have corresponding test files"
+    rule: "For every **/*.cs (excluding tests), there should be a **/*Tests.cs"
+
+  - id: csharp-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not import database packages directly"
+    source_glob: "**/Controllers/**/*.cs"
+    forbidden_imports:
+      - "System.Data.SqlClient"
+      - "Microsoft.EntityFrameworkCore"
+      - "Dapper"
+    reasoning: "Controllers should delegate to services or repositories"
+
+php:
+  - id: php-test-colocation
+    type: convention
+    severity: warning
+    description: "PHP source files should have corresponding test files"
+    rule: "For every src/**/*.php, there should be a tests/**/*Test.php"
+
+  - id: php-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not import database packages directly"
+    source_glob: "**/Controllers/**/*.php"
+    forbidden_imports:
+      - "Illuminate\\Database"
+      - "PDO"
+      - "Doctrine\\DBAL"
+    reasoning: "Controllers should delegate to services or repositories"
+
+  - id: php-no-raw-sql-outside-repo
+    type: pattern
+    severity: warning
+    description: "Raw SQL should only be used in repository classes"
+    scope_glob: "**/*.php"
+    forbidden_pattern: "DB::(raw|select|statement)"
+    scope_glob_exclude:
+      - "**/Repositories/**"
+      - "**/Repository/**"
+
+laravel:
+  - id: php-test-colocation
+    type: convention
+    severity: warning
+    description: "PHP source files should have corresponding test files"
+    rule: "For every app/**/*.php, there should be a tests/**/*Test.php"
+
+  - id: php-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not import database packages directly"
+    source_glob: "**/Controllers/**/*.php"
+    forbidden_imports:
+      - "Illuminate\\Database"
+      - "PDO"
+    reasoning: "Controllers should delegate to services or repositories"
+
+  - id: php-no-raw-sql-outside-repo
+    type: pattern
+    severity: warning
+    description: "Raw SQL should only be used in repository classes"
+    scope_glob: "**/*.php"
+    forbidden_pattern: "DB::(raw|select|statement)"
+    scope_glob_exclude:
+      - "**/Repositories/**"
+      - "**/Repository/**"
+
+ruby:
+  - id: ruby-test-colocation
+    type: convention
+    severity: warning
+    description: "Ruby source files should have corresponding test or spec files"
+    rule: "For every app/**/*.rb, there should be a test/**/*_test.rb or spec/**/*_spec.rb"
+
+  - id: ruby-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not access database directly"
+    source_glob: "app/controllers/**/*.rb"
+    forbidden_imports:
+      - "active_record/connection_adapters"
+    reasoning: "Controllers should delegate to models or service objects"
+
+  - id: ruby-no-raw-sql-outside-model
+    type: pattern
+    severity: warning
+    description: "Raw SQL should only be used in models or repository classes"
+    scope_glob: "**/*.rb"
+    forbidden_pattern: "(execute|select_all|find_by_sql)\\s*[('\"]"
+    scope_glob_exclude:
+      - "app/models/**"
+      - "**/migrations/**"
+      - "db/**"
+
+rails:
+  - id: ruby-test-colocation
+    type: convention
+    severity: warning
+    description: "Ruby source files should have corresponding test or spec files"
+    rule: "For every app/**/*.rb, there should be a test/**/*_test.rb or spec/**/*_spec.rb"
+
+  - id: ruby-controller-no-direct-db
+    type: boundary
+    severity: error
+    description: "Controllers must not access database directly"
+    source_glob: "app/controllers/**/*.rb"
+    forbidden_imports:
+      - "active_record/connection_adapters"
+    reasoning: "Controllers should delegate to models or service objects"
+
+  - id: ruby-no-raw-sql-outside-model
+    type: pattern
+    severity: warning
+    description: "Raw SQL should only be used in models"
+    scope_glob: "**/*.rb"
+    forbidden_pattern: "(execute|select_all|find_by_sql)\\s*[('\"]"
+    scope_glob_exclude:
+      - "app/models/**"
+      - "**/migrations/**"
+      - "db/**"

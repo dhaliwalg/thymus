@@ -44,7 +44,7 @@ BOUNDARY VIOLATION: src/routes/users.ts imports from db/models
 
 ## How It Works
 
-Three hooks fire automatically: session start loads your rules and injects a health summary into context, post-edit checks the changed file against all matching invariants in under 2 seconds, and session end summarizes violations and writes a history snapshot. Rules live in `.thymus/invariants.yml`. Import extraction is AST-aware for JavaScript/TypeScript and Python — it won't flag `import { db }` inside a comment or string literal. Go, Rust, and Java use regex-based extraction.
+Three hooks fire automatically: session start loads your rules and injects a health summary into context, post-edit checks the changed file against all matching invariants in under 2 seconds, and session end summarizes violations and writes a history snapshot. Rules live in `.thymus/invariants.yml`. Import extraction is AST-aware for JavaScript/TypeScript and Python — it won't flag `import { db }` inside a comment or string literal. All other languages use comment-aware state machine parsers.
 
 ## What You Can Define
 
@@ -119,15 +119,19 @@ ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
 
 ## Language Support
 
-| Language | Import Extraction | Notes |
-|----------|------------------|-------|
-| JavaScript/TypeScript | AST-aware (state machine) | Handles comments, strings, template literals, regex |
-| Python | AST-aware (`ast` module) | Full stdlib parsing |
-| Go | Comment-aware (state machine) | Handles `//`, `/* */`, strings, raw strings |
-| Rust | Comment-aware (state machine) | Handles nested `/* */`, raw strings with `r#"..."#` |
-| Java | Comment-aware (state machine) | Handles text blocks (`"""..."""`) |
-
-Framework detection: Next.js, Express, React, Django, FastAPI, Flask, Gin, Echo, Fiber, Chi, Actix, Axum, Rocket, Cargo, Maven, Gradle.
+| Language | Framework Detection | Import Analysis |
+|----------|-------------------|-----------------|
+| TypeScript/JavaScript | Next.js, Express, React | Comment-aware (state machine) |
+| Python | Django, FastAPI, Flask | AST (`ast` module) |
+| Go | Gin, Echo, Fiber, Chi | Comment-aware (state machine) |
+| Rust | Actix, Axum, Rocket | Comment-aware (state machine) |
+| Java | Spring, Quarkus, Micronaut | Comment-aware (state machine) |
+| Dart | Flutter, Shelf, Angel | Comment-aware (state machine) |
+| Kotlin | Spring Boot, Ktor, Micronaut | Comment-aware (state machine) |
+| Swift | Vapor, iOS/macOS | Comment-aware (state machine) |
+| C# | ASP.NET, MAUI | Comment-aware (state machine) |
+| PHP | Laravel, Symfony, Slim | Comment-aware (state machine) |
+| Ruby | Rails, Sinatra, Hanami | Comment-aware (state machine) |
 
 ## Installation
 
