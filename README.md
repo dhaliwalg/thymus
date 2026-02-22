@@ -88,6 +88,10 @@ Rules are portable YAML. Thymus ships integrations that enforce the same rules o
 bin/thymus scan              # Scan entire project
 bin/thymus scan --diff       # Scan staged files only
 bin/thymus check src/file.ts # Check a single file
+bin/thymus graph             # Generate interactive dependency graph
+bin/thymus infer             # Infer boundary rules from import patterns
+bin/thymus score             # Show current compliance score
+bin/thymus history           # Show scan history with trends
 bin/thymus init              # Initialize .thymus/ in a new project
 ```
 
@@ -115,6 +119,8 @@ ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
 /thymus:learn      — Teach a new rule in plain English
 /thymus:health     — Generate an HTML health report with trends
 /thymus:configure  — Adjust severity levels and rule settings
+/thymus:graph      — Generate an interactive dependency graph
+/thymus:infer      — Auto-infer boundary rules from import patterns
 ```
 
 ## Language Support
@@ -132,6 +138,55 @@ ln -sf ../../integrations/pre-commit/thymus-pre-commit .git/hooks/pre-commit
 | C# | ASP.NET, MAUI | Comment-aware (state machine) |
 | PHP | Laravel, Symfony, Slim | Comment-aware (state machine) |
 | Ruby | Rails, Sinatra, Hanami | Comment-aware (state machine) |
+
+## Dependency Graph
+
+`/thymus:graph` (or `bin/thymus graph`) builds an interactive HTML visualization of your module-level import relationships. Each module is a node, each cross-module import is an edge, and edges that violate a boundary rule are highlighted in red.
+
+```
+/thymus:graph
+```
+
+The graph opens in your default browser. It cross-references your `invariants.yml` rules so you can see which module relationships are clean and which are in violation.
+
+## Drift Scoring
+
+Every scan appends a snapshot to `.thymus/history.jsonl` with violation counts, a compliance score, and the current git commit hash. The compliance score formula:
+
+```
+compliance = ((files_checked - error_count) / files_checked) * 100
+```
+
+View the current score and recent trend:
+
+```bash
+bin/thymus score              # Compliance: 94.2% (+1.3% from last scan)
+bin/thymus history            # Last 10 scans with timestamps, scores, and commits
+bin/thymus history --json     # Raw JSONL for scripting
+```
+
+History is capped at 500 entries (FIFO). The session-end hook and health report use this data to show sparklines and trend direction over time.
+
+## Auto-Inference
+
+`/thymus:infer` (or `bin/thymus infer`) analyzes your project's actual import graph and proposes boundary rules based on what the code already does. Four detection algorithms run:
+
+| Algorithm | What it detects |
+|-----------|----------------|
+| Directionality | Module A imports from B but B never imports from A — propose preventing the reverse |
+| Gateway | >90% of external imports into a module target a single file (e.g. `index.ts`) — enforce gateway pattern |
+| Self-containment | Module imports from 0-1 other modules — lock down external dependencies |
+| Selective dependencies | Module imports from exactly 2 other modules — enforce the existing boundary |
+
+Each proposed rule includes a confidence score (0-100%). Rules below the threshold are filtered out:
+
+```bash
+bin/thymus infer                       # Default: 90% confidence threshold
+bin/thymus infer --min-confidence 70   # Lower threshold for more suggestions
+bin/thymus infer --apply               # Append inferred rules to invariants.yml
+```
+
+Inferred rules are tagged with `inferred: true` and their confidence percentage so you can distinguish them from hand-written rules.
 
 ## Installation
 
