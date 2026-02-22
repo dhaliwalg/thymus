@@ -1,18 +1,18 @@
 {
   "name": "thymus",
   "owner": {
-    "name": "Gurjit Dhaliwal",
-    "url": "https://github.com/dhaliwalg"
+    "name": "Gurjit Dhaliwal"
   },
   "plugins": [
     {
       "name": "thymus",
       "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests.",
-      "source": ".",
-      "repository": "https://github.com/dhaliwalg/thymus"
+      "source": "./",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["architecture", "boundaries", "linter", "imports", "invariants", "drift", "modules"],
+      "repository": "https://github.com/dhaliwalg/thymus",
+      "license": "MIT"
     }
-  ],
-  "categories": ["Linters", "Architecture"],
-  "keywords": ["architecture", "boundaries", "linter", "imports", "invariants", "drift", "modules"],
-  "license": "MIT"
+  ]
 }
