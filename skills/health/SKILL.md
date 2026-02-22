@@ -22,14 +22,14 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/thymus-heal
 Count history snapshots:
 
 ```bash
-ls ${PWD}/.thymus/history/*.json 2>/dev/null | wc -l
+wc -l < ${PWD}/.thymus/history.jsonl 2>/dev/null || echo 0
 ```
 
-If there are 2 or more snapshots, invoke the `debt-projector` agent:
-- Pass it the list of snapshot file paths (sorted chronologically)
+If there are 2 or more lines, invoke the `debt-projector` agent:
+- Pass it the path to `.thymus/history.jsonl`
 - Capture the JSON output as `PROJECTION`
 
-If fewer than 2 snapshots exist, set `PROJECTION` to empty string.
+If fewer than 2 lines exist, set `PROJECTION` to empty string.
 
 ## Step 3: Generate the HTML report
 
