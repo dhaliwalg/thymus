@@ -436,7 +436,7 @@ get_cross_module_imports() {
       | sed "$sed_pattern" \
       | sort -u \
       | while read -r to_module; do
-          [ -n "$to_module" ] && jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
+          [ -n "$to_module" ] && jq -cn --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         done
     done || true)
   if [ -n "$result" ]; then
@@ -516,7 +516,7 @@ _get_cross_module_imports_java() {
         local sub_package
         sub_package=$(echo "$imp" | sed "s|^${base_package}\.||" | cut -d. -f1)
         if [ -n "$sub_package" ] && [ "$sub_package" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$sub_package" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$sub_package" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -568,7 +568,7 @@ _get_cross_module_imports_go() {
         local to_module
         to_module=$(echo "$rel_import" | sed 's|^src/||' | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -612,7 +612,7 @@ _get_cross_module_imports_rust() {
         local to_module
         to_module=$(echo "$imp" | sed 's|^crate::||' | cut -d: -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -665,7 +665,7 @@ _get_cross_module_imports_dart() {
         local to_module
         to_module=$(echo "$rel_path" | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -713,7 +713,7 @@ _get_cross_module_imports_csharp() {
         local sub_ns
         sub_ns=$(echo "$imp" | sed "s|^${root_ns}\.||" | cut -d. -f1)
         if [ -n "$sub_ns" ] && [ "$sub_ns" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -760,7 +760,7 @@ _get_cross_module_imports_php() {
         local sub_ns
         sub_ns=$(echo "$imp" | sed "s|^${root_ns}\\\\||" | cut -d'\' -f1)
         if [ -n "$sub_ns" ] && [ "$sub_ns" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$sub_ns" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -801,7 +801,7 @@ _get_cross_module_imports_ruby() {
         local to_module
         to_module=$(echo "$imp" | sed 's|^\.\./||' | cut -d/ -f1)
         if [ -n "$to_module" ] && [ "$to_module" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$to_module" '{from:$f,to:$t}'
         fi
       fi
     done
@@ -841,7 +841,7 @@ _get_cross_module_imports_swift() {
       python3 "$extractor" "$swift_file" 2>/dev/null | while read -r imp; do
         # Check if the import is another target in the same package
         if [ -d "$PROJECT_ROOT/Sources/$imp" ] && [ "$imp" != "$from_module" ]; then
-          jq -n --arg f "$from_module" --arg t "$imp" '{from:$f,to:$t}'
+          jq -cn --arg f "$from_module" --arg t "$imp" '{from:$f,to:$t}'
         fi
       done
     done | sort -u > /tmp/thymus-swift-xmod-$$.tmp
