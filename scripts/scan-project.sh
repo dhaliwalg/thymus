@@ -21,6 +21,15 @@ for arg in "$@"; do
   esac
 done
 
+# Normalize scope: if absolute path, make relative to PWD
+if [ -n "$SCOPE" ]; then
+  SCOPE="${SCOPE%/}"
+  if [[ "$SCOPE" = "$PWD"* ]]; then
+    SCOPE="${SCOPE#"$PWD"}"
+    SCOPE="${SCOPE#/}"
+  fi
+fi
+
 echo "[$TIMESTAMP] scan-project.sh: scope=${SCOPE:-full} diff=$DIFF_MODE" >> "$DEBUG_LOG"
 
 if [ ! -f "$INVARIANTS_YML" ]; then
@@ -49,7 +58,11 @@ else
   SCAN_ROOT="$PWD"
   [ -n "$SCOPE" ] && SCAN_ROOT="$PWD/$SCOPE"
   while IFS= read -r f; do
-    [ -n "$f" ] && FILES+=("$f")
+    [ -n "$f" ] || continue
+    # find_source_files returns paths relative to SCAN_ROOT;
+    # prefix with SCOPE so paths are relative to PWD
+    [ -n "$SCOPE" ] && f="$SCOPE/$f"
+    FILES+=("$f")
   done < <(find_source_files "$SCAN_ROOT")
 fi
 
