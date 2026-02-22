@@ -24,6 +24,7 @@ Usage: thymus <command> [options]
 Commands:
   scan [--diff] [--files f1 f2] [--format json|text]   Scan project or staged files
   check <file> [--format json|text]                     Check single file against invariants
+  graph                                             Generate dependency graph HTML
   init [dir]                                            Initialize .thymus/ in a project
   version                                               Print version
 
@@ -53,6 +54,9 @@ case "$COMMAND" in
     ;;
   check)
     exec "$BIN_DIR/thymus-check" "$@"
+    ;;
+  graph)
+    exec bash "$BIN_DIR/../scripts/generate-graph.sh" "$@"
     ;;
   init)
     exec "$BIN_DIR/thymus-init" "$@"
