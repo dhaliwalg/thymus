@@ -11,6 +11,7 @@ THYMUS_DIR="$PWD/.thymus"
 INVARIANTS_YML="$THYMUS_DIR/invariants.yml"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 TEMPLATE_DIR="$(cd "$SCRIPT_DIR/../templates" && pwd)"
 TEMPLATE="$TEMPLATE_DIR/graph.html"
 
@@ -39,17 +40,10 @@ if [ ! -f "$TEMPLATE" ]; then
 fi
 
 # --- Build file list (same extensions and ignored paths as scan-project.sh) ---
-IGNORED_PATHS=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
-IGNORED_ARGS=()
-for p in "${IGNORED_PATHS[@]}"; do
-  IGNORED_ARGS+=(-not -path "*/$p/*" -not -name "$p")
-done
-
 declare -a FILES=()
 while IFS= read -r f; do
-  [ -n "$f" ] && FILES+=("$(echo "$f" | sed "s|$PWD/||")")
-done < <(find "$PWD" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.dart" -o -name "*.kt" -o -name "*.kts" -o -name "*.swift" -o -name "*.cs" -o -name "*.php" -o -name "*.rb" \) \
-  "${IGNORED_ARGS[@]}" 2>/dev/null | sort)
+  [ -n "$f" ] && FILES+=("$f")
+done < <(find_source_files)
 
 file_count=${#FILES[@]}
 echo "[$TIMESTAMP] generate-graph: found $file_count source files" >> "$DEBUG_LOG"
@@ -71,30 +65,7 @@ with open('$OUTPUT_FILE', 'w') as f:
 fi
 
 # --- Extract imports from each file ---
-IMPORT_ENTRIES="["
-first=true
-for rel_path in "${FILES[@]}"; do
-  abs_path="$PWD/$rel_path"
-  [ -f "$abs_path" ] || continue
-
-  # Run extract-imports.py, collect one import per line
-  imports_raw=$(python3 "${SCRIPT_DIR}/extract-imports.py" "$abs_path" 2>/dev/null || true)
-
-  # Build JSON array of imports
-  imports_json="[]"
-  if [ -n "$imports_raw" ]; then
-    imports_json=$(printf '%s\n' "$imports_raw" | jq -R '.' | jq -s '.')
-  fi
-
-  if [ "$first" = true ]; then
-    first=false
-  else
-    IMPORT_ENTRIES+=","
-  fi
-  IMPORT_ENTRIES+=$(jq -n --arg file "$rel_path" --argjson imports "$imports_json" \
-    '{"file":$file,"imports":$imports}')
-done
-IMPORT_ENTRIES+="]"
+IMPORT_ENTRIES=$(printf '%s\n' "${FILES[@]}" | build_import_entries)
 
 echo "[$TIMESTAMP] generate-graph: extracted imports from $file_count files" >> "$DEBUG_LOG"
 

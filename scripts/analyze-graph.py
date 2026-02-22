@@ -13,22 +13,13 @@ Output: YAML rules matching the invariants.yml format.
 import json
 import os
 import sys
-import datetime
 
-
-# ---------------------------------------------------------------------------
-# Debug logging (matches project convention)
-# ---------------------------------------------------------------------------
-DEBUG_LOG = "/tmp/thymus-debug.log"
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "lib"))
+from utils import debug as _debug
 
 
 def debug(msg):
-    ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    try:
-        with open(DEBUG_LOG, "a") as f:
-            f.write(f"[{ts}] analyze-graph.py: {msg}\n")
-    except OSError:
-        pass
+    _debug("analyze-graph.py", msg)
 
 
 # ---------------------------------------------------------------------------

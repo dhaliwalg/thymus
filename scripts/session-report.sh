@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Stop hook: summarize session violations and write history snapshot
 
-DEBUG_LOG="/tmp/thymus-debug.log"
-TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 THYMUS_DIR="$PWD/.thymus"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 
 input=$(cat)
 session_id=$(echo "$input" | jq -r '.session_id // "unknown"' 2>/dev/null || echo "unknown")
@@ -14,8 +14,7 @@ echo "[$TIMESTAMP] session-report.sh: session $session_id ended" >> "$DEBUG_LOG"
 
 [ -f "$THYMUS_DIR/baseline.json" ] || exit 0
 
-PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-CACHE_DIR="/tmp/thymus-cache-${PROJECT_HASH}"
+CACHE_DIR=$(thymus_cache_dir)
 SESSION_VIOLATIONS="$CACHE_DIR/session-violations.json"
 
 if [ ! -f "$SESSION_VIOLATIONS" ]; then
@@ -30,7 +29,6 @@ warnings=$(jq '[.[] | select(.severity == "warning")] | length' "$SESSION_VIOLAT
 echo "[$TIMESTAMP] session-report: $total total, $errors errors, $warnings warnings" >> "$DEBUG_LOG"
 
 # Build scan-compatible JSON for history append
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCAN_JSON=$(jq -n \
   --argjson violations "$(cat "$SESSION_VIOLATIONS")" \
   --argjson total "$total" \

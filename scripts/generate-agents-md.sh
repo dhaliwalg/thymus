@@ -16,6 +16,7 @@ set -euo pipefail
 
 PROJECT_ROOT="${1:-$PWD}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
 DEBUG_LOG="/tmp/thymus-debug.log"
 TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
 GENERATED_AT=$(date '+%Y-%m-%d %H:%M:%S')
@@ -41,65 +42,17 @@ FRAMEWORK=$(echo "$DEPS_JSON" | jq -r '.framework // "unknown"')
 PATTERNS_JSON=$(bash "$SCRIPT_DIR/detect-patterns.sh" "$PROJECT_ROOT" 2>/dev/null || echo '{"detected_layers":[],"raw_structure":[]}')
 DETECTED_LAYERS=$(echo "$PATTERNS_JSON" | jq -r '.detected_layers[]' 2>/dev/null || true)
 
-# Parse invariants to JSON using the same Python parser pattern
+# Parse invariants to JSON using shared library
 CACHE_DIR="/tmp/thymus-agentsmd-$$"
 mkdir -p "$CACHE_DIR"
-
-python3 - "$INVARIANTS_FILE" "$CACHE_DIR/invariants.json" <<'PYEOF'
-import json, re, sys
-
-src = sys.argv[1]
-dst = sys.argv[2]
-
-def parse(src, dst):
-    with open(src) as f:
-        lines = f.readlines()
-    invariants = []
-    current = None
-    list_key = None
-    for line in lines:
-        raw = line.rstrip('\n')
-        stripped = raw.strip()
-        if stripped.startswith('#') or stripped == '' or stripped.startswith('version:'):
-            continue
-        if stripped == 'invariants:':
-            continue
-        indent = len(raw) - len(raw.lstrip())
-        if stripped.startswith('- id:'):
-            if current:
-                invariants.append(current)
-            current = {'id': stripped.split(':', 1)[1].strip().strip('"').strip("'")}
-            list_key = None
-        elif current and indent >= 4 and ':' in stripped and not stripped.startswith('- '):
-            list_key = None
-            key, val = stripped.split(':', 1)
-            key = key.strip()
-            val = val.strip().strip('"').strip("'")
-            if val == '' or val == '[]':
-                list_key = key
-                current[key] = []
-            elif val.startswith('[') and val.endswith(']'):
-                items = [x.strip().strip('"').strip("'") for x in val[1:-1].split(',')]
-                current[key] = [x for x in items if x]
-            else:
-                current[key] = val
-        elif current and list_key and stripped.startswith('- '):
-            item = stripped[2:].strip().strip('"').strip("'")
-            current[list_key].append(item)
-    if current:
-        invariants.append(current)
-    with open(dst, 'w') as f:
-        json.dump(invariants, f)
-
-parse(src, dst)
-PYEOF
-
-INVARIANTS_JSON="$CACHE_DIR/invariants.json"
-if [ ! -f "$INVARIANTS_JSON" ]; then
+INVARIANTS_CACHE=$(load_invariants "$INVARIANTS_FILE" "$CACHE_DIR/invariants.json") || {
   echo "Error: Failed to parse invariants.yml" >&2
   rm -rf "$CACHE_DIR"
   exit 1
-fi
+}
+# Convert from {invariants:[...]} to just [...]
+jq '.invariants' "$INVARIANTS_CACHE" > "$CACHE_DIR/invariants-flat.json"
+INVARIANTS_JSON="$CACHE_DIR/invariants-flat.json"
 
 # ---- Helper: map directory names to roles ----
 _layer_role() {
