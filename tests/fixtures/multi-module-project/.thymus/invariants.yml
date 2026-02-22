@@ -1,0 +1,10 @@
+version: "1.0"
+invariants:
+  - id: boundary-api-no-db
+    type: boundary
+    severity: error
+    description: "API handlers must not import directly from the db layer"
+    source_glob: "src/api/**"
+    forbidden_imports:
+      - "../db/**"
+      - "src/db/**"

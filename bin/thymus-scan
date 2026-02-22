@@ -50,8 +50,8 @@ for arg in "$@"; do
 done
 
 # --- Validate and auto-detect format ---
-if [ -n "$FORMAT" ] && [ "$FORMAT" != "json" ] && [ "$FORMAT" != "text" ] && [ "$FORMAT" != "github" ] && [ "$FORMAT" != "sarif" ]; then
-  echo "Error: Invalid format '$FORMAT'. Use 'json', 'text', 'github', or 'sarif'." >&2
+if [ -n "$FORMAT" ] && [ "$FORMAT" != "json" ] && [ "$FORMAT" != "text" ] && [ "$FORMAT" != "github" ] && [ "$FORMAT" != "sarif" ] && [ "$FORMAT" != "graph" ]; then
+  echo "Error: Invalid format '$FORMAT'. Use 'json', 'text', 'github', 'sarif', or 'graph'." >&2
   exit 2
 fi
 if [ -z "$FORMAT" ]; then
@@ -203,6 +203,8 @@ sarif = {
 json.dump(sarif, sys.stdout, indent=2)
 print()
 "
+elif [ "$FORMAT" = "graph" ]; then
+  bash "$SCRIPTS_DIR/generate-graph.sh"
 else
   if [ "$COUNT" -eq 0 ]; then
     echo "thymus: no violations found"
