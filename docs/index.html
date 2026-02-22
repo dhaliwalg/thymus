@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thymus — An immune system for your codebase</title>
-  <meta name="description" content="Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.">
+  <meta name="description" content="Architectural invariants for AI-assisted codebases. Dependency graphs, drift scoring, auto-inferred rules. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
@@ -490,7 +490,7 @@
     <section class="hero">
       <h1>Thymus</h1>
       <p class="tagline">An immune system for your codebase</p>
-      <p class="description">Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.</p>
+      <p class="description">Architectural invariants for AI-assisted codebases. Dependency graphs, drift scoring, auto-inferred rules. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.</p>
       <a href="https://github.com/dhaliwalg/thymus" class="gh-link">View on GitHub</a>
     </section>
 
@@ -540,6 +540,9 @@ thymus scan                  <span class="comment"># full project</span>
 thymus scan --diff           <span class="comment"># staged files only</span>
 thymus check src/file.ts     <span class="comment"># single file</span>
 thymus init                  <span class="comment"># set up .thymus/ in a new project</span>
+thymus graph                 <span class="comment"># dependency graph (HTML)</span>
+thymus drift                 <span class="comment"># compliance score + trend</span>
+thymus infer                 <span class="comment"># auto-detect boundary rules</span>
 
 <span class="comment"># Output formats</span>
 thymus scan --format text    <span class="comment"># human-readable (default in terminal)</span>
@@ -613,29 +616,43 @@ jobs:
         <li>
           <span class="step-num">3</span>
           <div>
+            <h3><code>/thymus:infer</code></h3>
+            <p>Automatically detects boundary rules from your import graph. Analyzes real module dependencies and proposes invariants you can accept, reject, or edit.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <div>
             <h3>Every edit, automatically</h3>
             <p>A PostToolUse hook checks each file change against your rules in under two seconds. Warns Claude immediately if something drifts.</p>
           </div>
         </li>
         <li>
-          <span class="step-num">4</span>
+          <span class="step-num">5</span>
           <div>
             <h3><code>/thymus:scan</code></h3>
             <p>Full-project scan on demand. Catches violations the hooks might miss.</p>
           </div>
         </li>
         <li>
-          <span class="step-num">5</span>
+          <span class="step-num">6</span>
+          <div>
+            <h3><code>/thymus:graph</code></h3>
+            <p>Interactive module dependency graph. Visualize your architecture, see which modules talk to which, and highlight boundary violations in context.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">7</span>
           <div>
             <h3><code>/thymus:agents-md</code></h3>
             <p>Generates an AGENTS.md with your rules as natural language. AI coding agents (Claude Code, Copilot, Cursor) read it automatically and follow your architecture during code generation.</p>
           </div>
         </li>
         <li>
-          <span class="step-num">6</span>
+          <span class="step-num">8</span>
           <div>
             <h3><code>/thymus:health</code></h3>
-            <p>Generates an HTML health report with score, trend sparklines, and debt projections.</p>
+            <p>Generates an HTML health report with compliance score, drift tracking, trend sparklines, and debt projections. Scores are saved to history so you can see how your architecture evolves over time.</p>
           </div>
         </li>
       </ol>
