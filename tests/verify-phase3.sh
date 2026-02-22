@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export THYMUS_NO_OPEN=1
 
 ROOT="$(realpath "$(dirname "$0")/..")"
 SCAN="$ROOT/scripts/scan-project.sh"

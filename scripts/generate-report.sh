@@ -539,7 +539,10 @@ fi)
 HTMLEOF
 
 echo "[$TIMESTAMP] Report written: $REPORT_FILE" >> "$DEBUG_LOG"
-open "$REPORT_FILE" 2>/dev/null || xdg-open "$REPORT_FILE" 2>/dev/null || echo "Thymus: Open $REPORT_FILE in your browser" >&2
+# Open in browser unless THYMUS_NO_OPEN is set (e.g., in tests)
+if [ -z "${THYMUS_NO_OPEN:-}" ]; then
+  open "$REPORT_FILE" 2>/dev/null || xdg-open "$REPORT_FILE" 2>/dev/null || echo "Thymus: Open $REPORT_FILE in your browser" >&2
+fi
 
 # Output summary JSON for Claude to narrate
 jq -n \
