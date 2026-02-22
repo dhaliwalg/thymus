@@ -1382,7 +1382,7 @@ def _strip_php_comments(content):
                     j += 1
                 if content[j:j + len(heredoc_id)] == heredoc_id:
                     after = j + len(heredoc_id)
-                    if after >= n or content[after] in (';\n', '\n', ';'):
+                    if after >= n or content[after] in ('\n', ';'):
                         state = 0
                         i = after; continue
                     if after < n and content[after] == ';':

@@ -33,9 +33,13 @@ runs:
 
     - name: Run thymus scan
       shell: bash
+      env:
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_SCAN_MODE: ${{ inputs.scan-mode }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        SCAN_ARGS="--format ${{ inputs.format }}"
-        if [ "${{ inputs.scan-mode }}" = "diff" ]; then
+        SCAN_ARGS="--format $INPUT_FORMAT"
+        if [ "$INPUT_SCAN_MODE" = "diff" ]; then
           SCAN_ARGS="--diff $SCAN_ARGS"
         fi
 
@@ -51,7 +55,7 @@ runs:
         fi
 
         # Handle format-specific output
-        if [ "${{ inputs.format }}" = "sarif" ]; then
+        if [ "$INPUT_FORMAT" = "sarif" ]; then
           echo "$OUTPUT" > thymus-results.sarif
           # Also emit GitHub annotations for visibility
           VIOLATIONS=$(bin/thymus scan --diff --format json 2>/dev/null || echo "[]")
@@ -63,7 +67,7 @@ runs:
               (if .line then ",line=\(.line)" else "" end) +
               "::\(.message)"'
           fi
-        elif [ "${{ inputs.format }}" = "github" ]; then
+        elif [ "$INPUT_FORMAT" = "github" ]; then
           echo "$OUTPUT"
           VIOLATIONS=$(bin/thymus scan --diff --format json 2>/dev/null || echo "[]")
           COUNT=$(echo "$VIOLATIONS" | jq 'length' 2>/dev/null || echo 0)
@@ -84,9 +88,9 @@ runs:
         echo "::notice::Thymus: $COUNT violation(s) found ($ERRORS errors, $WARNINGS warnings)"
 
         # Determine exit code
-        if [ "${{ inputs.fail-on }}" = "never" ]; then
+        if [ "$INPUT_FAIL_ON" = "never" ]; then
           exit 0
-        elif [ "${{ inputs.fail-on }}" = "warn" ]; then
+        elif [ "$INPUT_FAIL_ON" = "warn" ]; then
           exit 1
         else
           # Default: fail on errors only
