@@ -1,10 +1,17 @@
 {
-  "name": "thymus",
-  "displayName": "Thymus — Architectural Invariants",
-  "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests. Learn rules in plain English, enforce them everywhere.",
-  "author": "Gurjit Dhaliwal",
+  "owner": {
+    "name": "Gurjit Dhaliwal",
+    "url": "https://github.com/dhaliwalg"
+  },
+  "plugins": [
+    {
+      "name": "thymus",
+      "displayName": "Thymus — Architectural Invariants",
+      "description": "Enforces architectural boundaries in AI-assisted codebases. Checks every file edit against YAML rules — catches cross-layer imports, banned patterns, naming violations, and missing tests. Learn rules in plain English, enforce them everywhere.",
+      "repository": "https://github.com/dhaliwalg/thymus"
+    }
+  ],
   "categories": ["Linters", "Architecture"],
   "keywords": ["architecture", "boundaries", "linter", "imports", "invariants", "drift", "modules"],
-  "repository": "https://github.com/dhaliwalg/thymus",
   "license": "MIT"
 }
