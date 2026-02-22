@@ -94,10 +94,17 @@ SCAN_FILE=$(mktemp)
 REPORT_FILE="$UNHEALTHY/.thymus/report.html"
 rm -f "$REPORT_FILE"
 
-# Count snapshots before, call generate-report once, count after
-SNAP_BEFORE=$(find "$UNHEALTHY/.thymus/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+# Count JSONL entries before, call generate-report once, count after
+HISTORY_JSONL="$UNHEALTHY/.thymus/history.jsonl"
+SNAP_BEFORE=0
+if [ -f "$HISTORY_JSONL" ]; then
+  SNAP_BEFORE=$(wc -l < "$HISTORY_JSONL" | tr -d ' ')
+fi
 REPORT_OUTPUT=$(cd "$UNHEALTHY" && bash "$ROOT/scripts/generate-report.sh" --scan "$SCAN_FILE" 2>/dev/null)
-SNAP_AFTER=$(find "$UNHEALTHY/.thymus/history/" -name "*.json" 2>/dev/null | wc -l | tr -d ' ')
+SNAP_AFTER=0
+if [ -f "$HISTORY_JSONL" ]; then
+  SNAP_AFTER=$(wc -l < "$HISTORY_JSONL" | tr -d ' ')
+fi
 
 # Test: report file is created
 if [ -f "$REPORT_FILE" ]; then
@@ -144,12 +151,12 @@ else
   ((failed++)) || true
 fi
 
-# Test: a NEW history snapshot was written
+# Test: a NEW JSONL history entry was appended
 if [ "$SNAP_AFTER" -gt "$SNAP_BEFORE" ]; then
-  echo "  ✓ new history snapshot written"
+  echo "  ✓ new JSONL history entry appended"
   ((passed++)) || true
 else
-  echo "  ✗ no new history snapshot written (before=$SNAP_BEFORE after=$SNAP_AFTER)"
+  echo "  ✗ no new JSONL history entry appended (before=$SNAP_BEFORE after=$SNAP_AFTER)"
   ((failed++)) || true
 fi
 
