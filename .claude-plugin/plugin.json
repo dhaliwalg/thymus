@@ -1,7 +1,7 @@
 {
   "name": "thymus",
   "description": "Enforces architectural boundaries in your codebase. Watches every file edit against YAML-defined rules and catches violations — cross-layer imports, banned patterns, missing tests — before they ship. Learns new rules from plain English. Works with any editor via pre-commit hooks and CLI.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "Gurjit Dhaliwal"
   }
