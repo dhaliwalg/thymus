@@ -6,6 +6,9 @@ set -euo pipefail
 # Outputs JSON: { new_directories, removed_directories, new_file_types, baseline_module_count }
 # Used by /thymus:baseline --refresh to propose new invariants.
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+
 THYMUS_DIR="$PWD/.thymus"
 BASELINE="$THYMUS_DIR/baseline.json"
 
@@ -14,9 +17,8 @@ if [ ! -f "$BASELINE" ]; then
   exit 0
 fi
 
-IGNORED=("node_modules" "dist" ".next" ".git" "coverage" "__pycache__" ".venv" "vendor" "target" "build" ".thymus")
 IGNORED_ARGS=()
-for p in "${IGNORED[@]}"; do
+for p in "${THYMUS_IGNORED_PATHS[@]}"; do
   IGNORED_ARGS+=(-not -path "*/$p" -not -path "*/$p/*")
 done
 
