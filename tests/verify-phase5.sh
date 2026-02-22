@@ -282,6 +282,34 @@ else
   ((failed++)) || true
 fi
 
+# --- AGENTS.md generation ---
+echo ""
+echo "AGENTS.md generation:"
+
+AGENTS_OUT=$(bash "$ROOT/tests/verify-agents-md.sh" 2>&1)
+if echo "$AGENTS_OUT" | grep -q "0 failed"; then
+  echo "  ✓ AGENTS.md generation tests pass"
+  ((passed++)) || true
+else
+  echo "  ✗ AGENTS.md generation regression"
+  echo "$AGENTS_OUT" | grep "✗" | head -5
+  ((failed++)) || true
+fi
+
+# --- CI output formats ---
+echo ""
+echo "CI output formats:"
+
+CI_OUT=$(bash "$ROOT/tests/verify-ci-output.sh" 2>&1)
+if echo "$CI_OUT" | grep -q "0 failed"; then
+  echo "  ✓ CI output format tests pass"
+  ((passed++)) || true
+else
+  echo "  ✗ CI output format regression"
+  echo "$CI_OUT" | grep "✗" | head -5
+  ((failed++)) || true
+fi
+
 # --- Final regression: all previous phases still pass ---
 echo ""
 echo "Phase regression:"

@@ -295,6 +295,183 @@ check_not_has "ignores use in string literal" "string::literal" "$OUT"
 check_not_has "ignores use in raw string" "raw::string" "$OUT"
 check_count "exactly 8 Rust imports" 8 "$OUT"
 
+# --- Test: Dart imports ---
+echo ""
+echo "Dart import extraction:"
+
+cat > "$TMPDIR/test_dart.dart" << 'EOF'
+import 'package:flutter/material.dart';
+import 'dart:async';
+import '../utils/helpers.dart';
+import 'package:http/http.dart' as http;
+export 'package:foo/bar.dart';
+part 'src/detail.dart';
+// import 'commented/out.dart';
+/* import 'block/commented.dart'; */
+var s = "import 'string/literal.dart';";
+var raw = r"import 'raw/string.dart';";
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_dart.dart")
+check_has "extracts flutter material" "package:flutter/material.dart" "$OUT"
+check_has "extracts dart:async" "dart:async" "$OUT"
+check_has "extracts relative import" "../utils/helpers.dart" "$OUT"
+check_has "extracts aliased import" "package:http/http.dart" "$OUT"
+check_has "extracts export" "package:foo/bar.dart" "$OUT"
+check_has "extracts part directive" "src/detail.dart" "$OUT"
+check_not_has "ignores line comment" "commented/out.dart" "$OUT"
+check_not_has "ignores block comment" "block/commented.dart" "$OUT"
+check_not_has "ignores string literal" "string/literal.dart" "$OUT"
+check_not_has "ignores raw string" "raw/string.dart" "$OUT"
+check_count "exactly 6 Dart imports" 6 "$OUT"
+
+# --- Test: Kotlin imports ---
+echo ""
+echo "Kotlin import extraction:"
+
+cat > "$TMPDIR/test_kotlin.kt" << 'EOF'
+import kotlin.collections.List
+import com.example.service.UserService
+import com.example.repo.*
+import com.example.util.Helper as H
+// import commented.Out
+/* import block.Commented */
+/* outer /* nested */ still comment import nested.Comment */
+val s = "import string.Literal"
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_kotlin.kt")
+check_has "extracts kotlin.collections.List" "kotlin.collections.List" "$OUT"
+check_has "extracts UserService" "com.example.service.UserService" "$OUT"
+check_has "extracts wildcard" "com.example.repo.*" "$OUT"
+check_has "extracts aliased" "com.example.util.Helper" "$OUT"
+check_not_has "ignores line comment" "commented.Out" "$OUT"
+check_not_has "ignores block comment" "block.Commented" "$OUT"
+check_not_has "ignores nested comment" "nested.Comment" "$OUT"
+check_not_has "ignores string literal" "string.Literal" "$OUT"
+check_count "exactly 4 Kotlin imports" 4 "$OUT"
+
+# --- Test: Swift imports ---
+echo ""
+echo "Swift import extraction:"
+
+cat > "$TMPDIR/test_swift.swift" << 'EOF'
+import Foundation
+import UIKit
+import struct Foundation.Date
+@testable import MyApp
+// import CommentedOut
+/* import BlockCommented */
+/* outer /* nested */ import NestedComment */
+let s = "import StringLiteral"
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_swift.swift")
+check_has "extracts Foundation" "Foundation" "$OUT"
+check_has "extracts UIKit" "UIKit" "$OUT"
+check_has "extracts struct import module" "Foundation" "$OUT"
+check_has "extracts testable import" "MyApp" "$OUT"
+check_not_has "ignores line comment" "CommentedOut" "$OUT"
+check_not_has "ignores block comment" "BlockCommented" "$OUT"
+check_not_has "ignores nested comment" "NestedComment" "$OUT"
+check_not_has "ignores string literal" "StringLiteral" "$OUT"
+check_count "exactly 3 unique Swift imports" 3 "$OUT"
+
+# --- Test: C# imports ---
+echo ""
+echo "C# import extraction:"
+
+cat > "$TMPDIR/test_csharp.cs" << 'EOF'
+using System;
+using System.Collections.Generic;
+using static System.Math;
+using Alias = System.IO.Path;
+// using Commented.Out;
+/* using Block.Commented; */
+string s = "using String.Literal;";
+string v = @"using Verbatim.Literal;";
+
+namespace MyApp {
+    class Foo {
+        void Bar() {
+            using var stream = File.OpenRead("x");
+        }
+    }
+}
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_csharp.cs")
+check_has "extracts System" "System" "$OUT"
+check_has "extracts Generic" "System.Collections.Generic" "$OUT"
+check_has "extracts static" "System.Math" "$OUT"
+check_has "extracts alias target" "System.IO.Path" "$OUT"
+check_not_has "ignores line comment" "Commented.Out" "$OUT"
+check_not_has "ignores block comment" "Block.Commented" "$OUT"
+check_not_has "ignores string literal" "String.Literal" "$OUT"
+check_not_has "ignores verbatim string" "Verbatim.Literal" "$OUT"
+check_not_has "ignores using statement in method" "File" "$OUT"
+check_count "exactly 4 C# imports" 4 "$OUT"
+
+# --- Test: PHP imports ---
+echo ""
+echo "PHP import extraction:"
+
+cat > "$TMPDIR/test_php.php" << 'EOF'
+<?php
+use App\Services\UserService;
+use App\Services\AuthService as Auth;
+use App\Models\{User, Role};
+use function App\Helpers\format;
+require 'vendor/autoload.php';
+require_once 'config/app.php';
+// use Commented\Out;
+/* use Block\Commented; */
+$s = "use String\Literal;";
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_php.php")
+check_has "extracts UserService" 'App\Services\UserService' "$OUT"
+check_has "extracts aliased" 'App\Services\AuthService' "$OUT"
+check_has "extracts grouped User" 'App\Models\User' "$OUT"
+check_has "extracts grouped Role" 'App\Models\Role' "$OUT"
+check_has "extracts function use" 'App\Helpers\format' "$OUT"
+check_has "extracts require" "vendor/autoload.php" "$OUT"
+check_has "extracts require_once" "config/app.php" "$OUT"
+check_not_has "ignores line comment" "Commented" "$OUT"
+check_not_has "ignores block comment" "Block" "$OUT"
+check_not_has "ignores string" "String" "$OUT"
+check_count "exactly 7 PHP imports" 7 "$OUT"
+
+# --- Test: Ruby imports ---
+echo ""
+echo "Ruby import extraction:"
+
+cat > "$TMPDIR/test_ruby.rb" << 'EOF'
+require 'json'
+require "active_record"
+require_relative 'models/user'
+require_relative '../lib/helpers'
+load 'config/routes.rb'
+autoload :UserService, 'services/user_service'
+# require 'commented_out'
+=begin
+require 'block_commented'
+=end
+s = "require 'string_literal'"
+EOF
+
+OUT=$(python3 "$EXTRACTOR" "$TMPDIR/test_ruby.rb")
+check_has "extracts json" "json" "$OUT"
+check_has "extracts active_record" "active_record" "$OUT"
+check_has "extracts require_relative" "models/user" "$OUT"
+check_has "extracts relative parent" "../lib/helpers" "$OUT"
+check_has "extracts load" "config/routes.rb" "$OUT"
+check_has "extracts autoload" "services/user_service" "$OUT"
+check_not_has "ignores line comment" "commented_out" "$OUT"
+check_not_has "ignores block comment" "block_commented" "$OUT"
+check_not_has "ignores string literal" "string_literal" "$OUT"
+check_count "exactly 6 Ruby imports" 6 "$OUT"
+
 # --- Test 10: Edge cases ---
 echo ""
 echo "Edge cases:"

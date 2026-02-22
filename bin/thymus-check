@@ -24,7 +24,7 @@ FORMAT=""
 for arg in "$@"; do
   case "$arg" in
     --format) : ;;  # next arg is the format value
-    json|text)
+    json|text|github|sarif)
       if [ "${prev_arg:-}" = "--format" ]; then FORMAT="$arg"; fi
       ;;
     --format=*) FORMAT="${arg#--format=}" ;;
@@ -125,6 +125,67 @@ COUNT=$(echo "$VIOLATIONS" | jq 'length')
 # --- Output ---
 if [ "$FORMAT" = "json" ]; then
   echo "$VIOLATIONS"
+elif [ "$FORMAT" = "github" ]; then
+  echo "$VIOLATIONS" | jq -r '.[] |
+    (if .severity == "error" then "::error" else "::warning" end) +
+    " file=\(.file)" +
+    (if .line then ",line=\(.line)" else "" end) +
+    "::" + .message +
+    (if .import_path then " (import: \(.import_path))" else "" end)'
+elif [ "$FORMAT" = "sarif" ]; then
+  echo "$VIOLATIONS" | python3 -c "
+import json, sys
+
+violations = json.load(sys.stdin)
+
+rules = {}
+results = []
+for v in violations:
+    rid = v.get('rule_id', 'unknown')
+    if rid not in rules:
+        rules[rid] = {
+            'id': rid,
+            'shortDescription': {'text': v.get('rule_name', rid)},
+            'defaultConfiguration': {
+                'level': 'error' if v.get('severity') == 'error' else 'warning'
+            }
+        }
+    region = {}
+    if v.get('line'):
+        region['startLine'] = v['line']
+    result = {
+        'ruleId': rid,
+        'level': 'error' if v.get('severity') == 'error' else 'warning',
+        'message': {'text': v.get('message', '')},
+        'locations': [{
+            'physicalLocation': {
+                'artifactLocation': {'uri': v.get('file', '')},
+                **(({'region': region}) if region else {})
+            }
+        }]
+    }
+    if v.get('import_path'):
+        result['message']['text'] += ' (import: ' + v['import_path'] + ')'
+    results.append(result)
+
+sarif = {
+    '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+    'version': '2.1.0',
+    'runs': [{
+        'tool': {
+            'driver': {
+                'name': 'Thymus',
+                'informationUri': 'https://github.com/anthropics/thymus',
+                'rules': list(rules.values())
+            }
+        },
+        'results': results
+    }]
+}
+
+json.dump(sarif, sys.stdout, indent=2)
+print()
+"
 else
   if [ "$COUNT" -eq 0 ]; then
     echo "thymus: no violations in $REL_FILE"

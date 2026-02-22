@@ -50,8 +50,8 @@ for arg in "$@"; do
 done
 
 # --- Validate and auto-detect format ---
-if [ -n "$FORMAT" ] && [ "$FORMAT" != "json" ] && [ "$FORMAT" != "text" ]; then
-  echo "Error: Invalid format '$FORMAT'. Use 'json' or 'text'." >&2
+if [ -n "$FORMAT" ] && [ "$FORMAT" != "json" ] && [ "$FORMAT" != "text" ] && [ "$FORMAT" != "github" ] && [ "$FORMAT" != "sarif" ]; then
+  echo "Error: Invalid format '$FORMAT'. Use 'json', 'text', 'github', or 'sarif'." >&2
   exit 2
 fi
 if [ -z "$FORMAT" ]; then
@@ -141,6 +141,68 @@ COUNT=$(echo "$VIOLATIONS" | jq 'length')
 # --- Output ---
 if [ "$FORMAT" = "json" ]; then
   echo "$VIOLATIONS"
+elif [ "$FORMAT" = "github" ]; then
+  echo "$VIOLATIONS" | jq -r '.[] |
+    (if .severity == "error" then "::error" else "::warning" end) +
+    " file=\(.file)" +
+    (if .line then ",line=\(.line)" else "" end) +
+    "::" + .message +
+    (if .import_path then " (import: \(.import_path))" else "" end)'
+elif [ "$FORMAT" = "sarif" ]; then
+  # SARIF 2.1.0 output for GitHub Code Scanning
+  echo "$VIOLATIONS" | python3 -c "
+import json, sys
+
+violations = json.load(sys.stdin)
+
+rules = {}
+results = []
+for v in violations:
+    rid = v.get('rule_id', 'unknown')
+    if rid not in rules:
+        rules[rid] = {
+            'id': rid,
+            'shortDescription': {'text': v.get('rule_name', rid)},
+            'defaultConfiguration': {
+                'level': 'error' if v.get('severity') == 'error' else 'warning'
+            }
+        }
+    region = {}
+    if v.get('line'):
+        region['startLine'] = v['line']
+    result = {
+        'ruleId': rid,
+        'level': 'error' if v.get('severity') == 'error' else 'warning',
+        'message': {'text': v.get('message', '')},
+        'locations': [{
+            'physicalLocation': {
+                'artifactLocation': {'uri': v.get('file', '')},
+                **(({'region': region}) if region else {})
+            }
+        }]
+    }
+    if v.get('import_path'):
+        result['message']['text'] += ' (import: ' + v['import_path'] + ')'
+    results.append(result)
+
+sarif = {
+    '\$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+    'version': '2.1.0',
+    'runs': [{
+        'tool': {
+            'driver': {
+                'name': 'Thymus',
+                'informationUri': 'https://github.com/anthropics/thymus',
+                'rules': list(rules.values())
+            }
+        },
+        'results': results
+    }]
+}
+
+json.dump(sarif, sys.stdout, indent=2)
+print()
+"
 else
   if [ "$COUNT" -eq 0 ]; then
     echo "thymus: no violations found"
