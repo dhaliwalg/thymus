@@ -137,15 +137,29 @@ import_is_forbidden() {
   if [[ "$import" == *.* ]] && [[ "$import" != */* ]]; then
     import_as_path=$(printf '%s' "$import" | tr '.' '/')
   fi
+  local matched=false
   for ((f=0; f<count; f++)); do
     local pattern
     pattern=$(echo "$invariant_json" | jq -r ".forbidden_imports[$f]")
     if path_matches "$import" "$pattern" || [ "$import" = "$pattern" ] \
        || path_matches "$import_as_path" "$pattern"; then
-      return 0
+      matched=true
+      break
     fi
   done
-  return 1
+  $matched || return 1
+  # Check allowed_imports — if import matches an allowed pattern, it's not forbidden
+  local allowed_count
+  allowed_count=$(echo "$invariant_json" | jq 'if .allowed_imports then .allowed_imports | length else 0 end' 2>/dev/null || echo 0)
+  for ((a=0; a<allowed_count; a++)); do
+    local allowed
+    allowed=$(echo "$invariant_json" | jq -r ".allowed_imports[$a]")
+    if path_matches "$import" "$allowed" || [ "$import" = "$allowed" ] \
+       || path_matches "$import_as_path" "$allowed"; then
+      return 1  # allowed — not forbidden
+    fi
+  done
+  return 0  # forbidden
 }
 
 # --- File discovery ---
