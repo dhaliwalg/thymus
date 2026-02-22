@@ -7,6 +7,15 @@ inputs:
   fail-on:
     description: 'Fail the check on: error, warn, or never'
     default: 'error'
+  format:
+    description: 'Output format: github (annotations), sarif (code scanning), or json'
+    default: 'github'
+  sarif-upload:
+    description: 'Upload SARIF results to GitHub Code Scanning (requires format: sarif)'
+    default: 'false'
+  agents-md-check:
+    description: 'Verify AGENTS.md is up to date with invariants (true/false)'
+    default: 'false'
 runs:
   using: 'composite'
   steps:
@@ -21,16 +30,17 @@ runs:
           echo "::error::bin/thymus not found or not executable"
           exit 1
         fi
+
     - name: Run thymus scan
       shell: bash
       run: |
-        SCAN_ARGS="--format json"
+        SCAN_ARGS="--format ${{ inputs.format }}"
         if [ "${{ inputs.scan-mode }}" = "diff" ]; then
           SCAN_ARGS="--diff $SCAN_ARGS"
         fi
 
         set +e
-        VIOLATIONS=$(bin/thymus scan $SCAN_ARGS 2>/dev/null)
+        OUTPUT=$(bin/thymus scan $SCAN_ARGS 2>/dev/null)
         SCAN_EXIT=$?
         set -e
 
@@ -40,23 +50,38 @@ runs:
           exit 1
         fi
 
-        if [ -z "$VIOLATIONS" ] || [ "$VIOLATIONS" = "[]" ]; then
+        # Handle format-specific output
+        if [ "${{ inputs.format }}" = "sarif" ]; then
+          echo "$OUTPUT" > thymus-results.sarif
+          # Also emit GitHub annotations for visibility
+          VIOLATIONS=$(bin/thymus scan --diff --format json 2>/dev/null || echo "[]")
+          COUNT=$(echo "$VIOLATIONS" | jq 'length' 2>/dev/null || echo 0)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "$VIOLATIONS" | jq -r '.[] |
+              (if .severity == "error" then "::error" else "::warning" end) +
+              " file=\(.file)" +
+              (if .line then ",line=\(.line)" else "" end) +
+              "::\(.message)"'
+          fi
+        elif [ "${{ inputs.format }}" = "github" ]; then
+          echo "$OUTPUT"
+          VIOLATIONS=$(bin/thymus scan --diff --format json 2>/dev/null || echo "[]")
+          COUNT=$(echo "$VIOLATIONS" | jq 'length' 2>/dev/null || echo 0)
+        else
+          echo "$OUTPUT"
+          VIOLATIONS="$OUTPUT"
+          COUNT=$(echo "$VIOLATIONS" | jq 'length' 2>/dev/null || echo 0)
+        fi
+
+        if [ "${COUNT:-0}" -eq 0 ]; then
           echo "::notice::Thymus: No architectural violations found"
           exit 0
         fi
 
-        COUNT=$(echo "$VIOLATIONS" | jq 'length')
-
-        if [ "$COUNT" -eq 0 ]; then
-          echo "::notice::Thymus: No architectural violations found"
-          exit 0
-        fi
-
-        # Output as GitHub annotations
-        echo "$VIOLATIONS" | jq -r '.[] |
-          if .severity == "error" then "::error file=\(.file)" + (if .line then ",line=\(.line)" else "" end) + "::\(.message)"
-          else "::warning file=\(.file)" + (if .line then ",line=\(.line)" else "" end) + "::\(.message)"
-          end'
+        # Summary
+        ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length' 2>/dev/null || echo 0)
+        WARNINGS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "warn" or .severity == "warning")] | length' 2>/dev/null || echo 0)
+        echo "::notice::Thymus: $COUNT violation(s) found ($ERRORS errors, $WARNINGS warnings)"
 
         # Determine exit code
         if [ "${{ inputs.fail-on }}" = "never" ]; then
@@ -65,8 +90,50 @@ runs:
           exit 1
         else
           # Default: fail on errors only
-          ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length')
-          if [ "$ERRORS" -gt 0 ]; then
+          if [ "${ERRORS:-0}" -gt 0 ]; then
             exit 1
           fi
+        fi
+
+    - name: Upload SARIF results
+      if: inputs.sarif-upload == 'true' && inputs.format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: thymus-results.sarif
+        category: thymus-architectural-lint
+
+    - name: Check AGENTS.md freshness
+      if: inputs.agents-md-check == 'true'
+      shell: bash
+      run: |
+        if [ ! -f ".thymus/invariants.yml" ]; then
+          exit 0
+        fi
+
+        # Generate fresh AGENTS.md content
+        SCRIPT_DIR="$(dirname "$(find . -name generate-agents-md.sh -path "*/scripts/*" | head -1)")"
+        if [ -z "$SCRIPT_DIR" ] || [ ! -f "$SCRIPT_DIR/generate-agents-md.sh" ]; then
+          echo "::notice::generate-agents-md.sh not found, skipping AGENTS.md check"
+          exit 0
+        fi
+
+        FRESH=$(bash "$SCRIPT_DIR/generate-agents-md.sh" 2>/dev/null | grep -v "Last generated:")
+
+        # Check both possible target files
+        TARGET=""
+        if [ -f "AGENTS.md" ]; then
+          TARGET="AGENTS.md"
+        elif [ -f "CLAUDE.md" ]; then
+          TARGET="CLAUDE.md"
+        fi
+
+        if [ -z "$TARGET" ]; then
+          echo "::warning::No AGENTS.md or CLAUDE.md found. Run /thymus:agents-md to generate one."
+          exit 0
+        fi
+
+        EXISTING=$(cat "$TARGET" | grep -v "Last generated:")
+
+        if [ "$FRESH" != "$EXISTING" ]; then
+          echo "::warning::$TARGET is out of date with invariants.yml. Run /thymus:agents-md to regenerate."
         fi

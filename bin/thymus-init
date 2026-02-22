@@ -106,11 +106,7 @@ if framework != 'unknown' and framework in sections:
 # Rules to skip when a language-specific replacement exists
 # e.g. Java has java-test-colocation, so skip generic-test-colocation
 SKIP_RULES = set()
-if language == 'java':
-    SKIP_RULES.add('generic-test-colocation')
-if language == 'go':
-    SKIP_RULES.add('generic-test-colocation')
-if language == 'rust':
+if language in ('java', 'go', 'rust', 'dart', 'kotlin', 'swift', 'csharp', 'php', 'ruby'):
     SKIP_RULES.add('generic-test-colocation')
 
 rules = []

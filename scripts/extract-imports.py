@@ -725,6 +725,909 @@ def extract_java_imports(filepath):
 
 
 # ---------------------------------------------------------------------------
+# Dart — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_dart_comments(content):
+    """Strip Dart comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ (no nesting in Dart)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Single-quoted strings: '...' with \\ escapes (preserved)
+    - Triple-quoted strings: \"\"\"...\"\"\" and '''...''' (preserved)
+    - Raw strings: r"..." and r'...' (preserved, no escapes)
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=single_string,
+    #         5=triple_double_string, 6=triple_single_string,
+    #         7=raw_double_string, 8=raw_single_string
+    state = 0
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            # Raw strings: r"..." or r'...'
+            if ch == 'r' and i + 1 < n:
+                if content[i + 1] == '"':
+                    state = 7
+                    i += 2; continue
+                if content[i + 1] == "'":
+                    state = 8
+                    i += 2; continue
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    i += 2; continue
+            # Triple-quoted strings (must check before single/double)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 5
+                i += 3; continue
+            if ch == "'" and i + 2 < n and content[i + 1] == "'" and content[i + 2] == "'":
+                state = 6
+                i += 3; continue
+            if ch == '"':
+                state = 3
+            elif ch == "'":
+                state = 4
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # single-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        elif state == 5:  # triple-double-quoted string (preserved)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 0
+                i += 3; continue
+            i += 1
+
+        elif state == 6:  # triple-single-quoted string (preserved)
+            if ch == "'" and i + 2 < n and content[i + 1] == "'" and content[i + 2] == "'":
+                state = 0
+                i += 3; continue
+            i += 1
+
+        elif state == 7:  # raw double-quoted string (preserved, no escapes)
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 8:  # raw single-quoted string (preserved, no escapes)
+            if ch == "'":
+                state = 0
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_dart_imports(filepath):
+    """Extract imports from Dart files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_dart_comments(content)
+    imports = []
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # import/export/part directives
+        m = re.match(r'''(?:import|export|part)\s+['"](.+?)['"]''', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
+# Kotlin — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_kotlin_comments(content):
+    """Strip Kotlin comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ with NESTED support (depth counter)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Triple-quoted strings: \"\"\"...\"\"\" (raw, no escapes, preserved)
+    - Character literals: '...' with \\ escapes (preserved)
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=triple_string, 5=char_literal
+    state = 0
+    block_depth = 0
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    block_depth = 1
+                    i += 2; continue
+            # Triple-quoted strings (check before double)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 4
+                i += 3; continue
+            if ch == '"':
+                state = 3
+            elif ch == "'":
+                state = 5
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment (nested)
+            if ch == '/' and i + 1 < n and content[i + 1] == '*':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth += 1
+                i += 2; continue
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth -= 1
+                if block_depth == 0:
+                    state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # triple-quoted string (preserved)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 0
+                i += 3; continue
+            i += 1
+
+        elif state == 5:  # char literal (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_kotlin_imports(filepath):
+    """Extract imports from Kotlin files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_kotlin_comments(content)
+    imports = []
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # import com.example.Foo or import com.example.* or import ... as Alias
+        m = re.match(r'import\s+([\w]+(?:\.[\w]+)*(?:\.\*)?)', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
+# Swift — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_swift_comments(content):
+    """Strip Swift comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ with NESTED support (depth counter)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Multi-line strings: \"\"\"...\"\"\" (preserved)
+    - String interpolation \\(...) treated as part of string
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=triple_string
+    state = 0
+    block_depth = 0
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    block_depth = 1
+                    i += 2; continue
+            # Triple-quoted strings (check before double)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 4
+                i += 3; continue
+            if ch == '"':
+                state = 3
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment (nested)
+            if ch == '/' and i + 1 < n and content[i + 1] == '*':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth += 1
+                i += 2; continue
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                block_depth -= 1
+                if block_depth == 0:
+                    state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # triple-quoted string (preserved)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                state = 0
+                i += 3; continue
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_swift_imports(filepath):
+    """Extract imports from Swift files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_swift_comments(content)
+    imports = []
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # @testable import Foo, import struct Foundation.Date, import Foundation
+        m = re.match(
+            r'(?:@testable\s+)?import\s+'
+            r'(?:(?:struct|class|enum|protocol|typealias|func|var|let)\s+)?'
+            r'(\w+)',
+            stripped
+        )
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
+# C# — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_csharp_comments(content):
+    """Strip C# comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: // through end of line
+    - Block comments: /* ... */ (no nesting)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Verbatim strings: @"..." — no escapes, "" is escaped quote (preserved)
+    - Raw string literals: three or more " to open/close (preserved)
+    - Character literals: '...' with \\ escapes (preserved)
+    - Interpolated strings: $"..." treated as regular strings
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=double_string, 4=verbatim_string, 5=char_literal,
+    #         6=raw_string
+    state = 0
+    raw_quote_count = 0
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    i += 2; continue
+            # Verbatim strings: @"..." or $@"..."
+            if ch in ('@', '$') and i + 1 < n:
+                j = i
+                if ch == '$' and j + 1 < n and content[j + 1] == '@':
+                    j += 2
+                elif ch == '@':
+                    j += 1
+                else:
+                    j = -1
+                if j > 0 and j < n and content[j] == '"':
+                    # Check for raw string (3+ quotes)
+                    qcount = 0
+                    k = j
+                    while k < n and content[k] == '"':
+                        qcount += 1
+                        k += 1
+                    if qcount >= 3:
+                        raw_quote_count = qcount
+                        state = 6
+                        i = k; continue
+                    # Verbatim string
+                    state = 4
+                    i = j + 1; continue
+            # Raw string literals: """...""" (3+ quotes)
+            if ch == '"' and i + 2 < n and content[i + 1] == '"' and content[i + 2] == '"':
+                qcount = 0
+                j = i
+                while j < n and content[j] == '"':
+                    qcount += 1
+                    j += 1
+                raw_quote_count = qcount
+                state = 6
+                i = j; continue
+            # Interpolated string: $"..."
+            if ch == '$' and i + 1 < n and content[i + 1] == '"':
+                state = 3
+                i += 2; continue
+            if ch == '"':
+                state = 3
+            elif ch == "'":
+                state = 5
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 4:  # verbatim string (preserved)
+            if ch == '"':
+                if i + 1 < n and content[i + 1] == '"':
+                    i += 2; continue  # escaped quote
+                state = 0
+            i += 1
+
+        elif state == 5:  # char literal (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        elif state == 6:  # raw string literal (preserved)
+            if ch == '"':
+                qcount = 0
+                j = i
+                while j < n and content[j] == '"':
+                    qcount += 1
+                    j += 1
+                if qcount >= raw_quote_count:
+                    state = 0
+                    i = j; continue
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_csharp_imports(filepath):
+    """Extract imports from C# files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_csharp_comments(content)
+    imports = []
+
+    # Only extract top-level using directives (before namespace/class)
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Stop at namespace or class declarations
+        if re.match(r'(namespace|class|struct|interface|enum|record)\s', stripped):
+            break
+        m = re.match(
+            r'(?:global\s+)?using\s+(?:static\s+)?(?:\w+\s*=\s*)?(?:global::)?([\w.]+)',
+            stripped
+        )
+        if m:
+            path = m.group(1)
+            # Strip generic type parameters if present (from alias targets)
+            path = re.sub(r'<.*', '', path)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
+# PHP — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_php_comments(content):
+    """Strip PHP comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: // through end of line
+    - Hash comments: # through end of line (but not #[ attributes)
+    - Block comments: /* ... */ (no nesting)
+    - Single-quoted strings: '...' with \\\\ and \\' escapes (preserved)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Heredoc/Nowdoc: <<<ID ... ID; (preserved)
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=single_string, 4=double_string, 5=heredoc
+    state = 0
+    heredoc_id = ""
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if ch == '/' and i + 1 < n:
+                nch = content[i + 1]
+                if nch == '/':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 1
+                    i += 2; continue
+                if nch == '*':
+                    out[i] = ' '; out[i + 1] = ' '
+                    state = 2
+                    i += 2; continue
+            if ch == '#' and (i + 1 >= n or content[i + 1] != '['):
+                out[i] = ' '
+                state = 1
+                i += 1; continue
+            # Heredoc/Nowdoc: <<<IDENTIFIER or <<<'IDENTIFIER'
+            if ch == '<' and i + 2 < n and content[i + 1] == '<' and content[i + 2] == '<':
+                j = i + 3
+                # Skip optional whitespace
+                while j < n and content[j] in ' \t':
+                    j += 1
+                # Check for nowdoc (quoted identifier)
+                nowdoc = False
+                if j < n and content[j] == "'":
+                    nowdoc = True
+                    j += 1
+                # Read identifier
+                id_start = j
+                while j < n and (content[j].isalnum() or content[j] == '_'):
+                    j += 1
+                if j > id_start:
+                    heredoc_id = content[id_start:j]
+                    if nowdoc and j < n and content[j] == "'":
+                        j += 1
+                    # Skip to end of line
+                    while j < n and content[j] != '\n':
+                        j += 1
+                    state = 5
+                    i = j; continue
+            if ch == "'":
+                state = 3
+            elif ch == '"':
+                state = 4
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment
+            if ch == '*' and i + 1 < n and content[i + 1] == '/':
+                out[i] = ' '; out[i + 1] = ' '
+                state = 0
+                i += 2; continue
+            if ch != '\n':
+                out[i] = ' '
+            i += 1
+
+        elif state == 3:  # single-quoted string (preserved)
+            if ch == '\\' and i + 1 < n and content[i + 1] in ('\\', "'"):
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            i += 1
+
+        elif state == 4:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            i += 1
+
+        elif state == 5:  # heredoc/nowdoc (preserved)
+            if ch == '\n':
+                # Check if next line starts with the heredoc identifier
+                j = i + 1
+                # Skip optional whitespace (for flexible heredoc)
+                while j < n and content[j] in ' \t':
+                    j += 1
+                if content[j:j + len(heredoc_id)] == heredoc_id:
+                    after = j + len(heredoc_id)
+                    if after >= n or content[after] in (';\n', '\n', ';'):
+                        state = 0
+                        i = after; continue
+                    if after < n and content[after] == ';':
+                        state = 0
+                        i = after + 1; continue
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_php_imports(filepath):
+    """Extract imports from PHP files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_php_comments(content)
+    imports = []
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # use App\Services\UserService;
+        # use App\Services\UserService as US;
+        # use function App\Helpers\format;
+        # use const App\Config\VERSION;
+        m = re.match(r'use\s+(?:function\s+|const\s+)?([\w\\]+)\s*(?:as\s+\w+\s*)?;', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+            continue
+
+        # use App\Models\{User, Role};
+        m = re.match(r'use\s+(?:function\s+|const\s+)?([\w\\]+)\\\{([^}]+)\}', stripped)
+        if m:
+            prefix = m.group(1)
+            items = m.group(2)
+            for item in items.split(','):
+                item = item.strip()
+                if ' as ' in item:
+                    item = item.split(' as ')[0].strip()
+                if item:
+                    full_path = prefix + '\\' + item
+                    if full_path not in imports:
+                        imports.append(full_path)
+            continue
+
+        # require/require_once/include/include_once
+        m = re.match(
+            r'(?:require_once|require|include_once|include)\s+[\'"](.+?)[\'"]',
+            stripped
+        )
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
+# Ruby — comment-aware state-machine parser
+# ---------------------------------------------------------------------------
+
+def _strip_ruby_comments(content):
+    """Strip Ruby comments, preserving string content and line structure.
+
+    Handles:
+    - Line comments: # through end of line
+    - Block comments: =begin at start of line through =end at start of line
+    - Single-quoted strings: '...' with \\\\ and \\' escapes (preserved)
+    - Double-quoted strings: "..." with \\ escapes (preserved)
+    - Heredoc: <<~ID, <<-ID, <<ID through ID at start of line (preserved)
+    """
+    out = list(content)
+    i = 0
+    n = len(content)
+    # States: 0=code, 1=line_comment, 2=block_comment,
+    #         3=single_string, 4=double_string, 5=heredoc
+    state = 0
+    heredoc_id = ""
+    at_line_start = True
+
+    while i < n:
+        ch = content[i]
+
+        if state == 0:  # code
+            if at_line_start and ch == '=' and content[i:i + 6] == '=begin' and \
+               (i + 6 >= n or content[i + 6] in (' ', '\t', '\n')):
+                # Replace =begin line with spaces
+                while i < n and content[i] != '\n':
+                    out[i] = ' '
+                    i += 1
+                state = 2
+                at_line_start = True
+                continue
+            if ch == '#':
+                out[i] = ' '
+                state = 1
+                i += 1; continue
+            # Heredoc: <<~ID, <<-ID, <<ID, <<~'ID', <<-'ID', <<'ID'
+            if ch == '<' and i + 1 < n and content[i + 1] == '<':
+                j = i + 2
+                if j < n and content[j] in ('~', '-'):
+                    j += 1
+                # Check for quoted heredoc
+                quote = None
+                if j < n and content[j] in ("'", '"'):
+                    quote = content[j]
+                    j += 1
+                id_start = j
+                while j < n and (content[j].isalnum() or content[j] == '_'):
+                    j += 1
+                if j > id_start:
+                    hid = content[id_start:j]
+                    if quote and j < n and content[j] == quote:
+                        j += 1
+                    # Verify it's a heredoc (next meaningful char should be newline-ish or ,)
+                    k = j
+                    while k < n and content[k] in ' \t':
+                        k += 1
+                    if k < n and content[k] in ('\n', ',', '.', ')'):
+                        heredoc_id = hid
+                        # Skip to end of current line
+                        while i < n and content[i] != '\n':
+                            i += 1
+                        state = 5
+                        at_line_start = True
+                        continue
+            if ch == "'":
+                state = 3
+            elif ch == '"':
+                state = 4
+            at_line_start = (ch == '\n')
+            i += 1
+
+        elif state == 1:  # line comment
+            if ch == '\n':
+                state = 0
+                at_line_start = True
+            else:
+                out[i] = ' '
+            i += 1
+
+        elif state == 2:  # block comment (=begin...=end)
+            if at_line_start and ch == '=' and content[i:i + 4] == '=end' and \
+               (i + 4 >= n or content[i + 4] in (' ', '\t', '\n')):
+                while i < n and content[i] != '\n':
+                    out[i] = ' '
+                    i += 1
+                state = 0
+                at_line_start = True
+                continue
+            if ch != '\n':
+                out[i] = ' '
+            at_line_start = (ch == '\n')
+            i += 1
+
+        elif state == 3:  # single-quoted string (preserved)
+            if ch == '\\' and i + 1 < n and content[i + 1] in ('\\', "'"):
+                i += 2; continue
+            if ch == "'":
+                state = 0
+            at_line_start = (ch == '\n')
+            i += 1
+
+        elif state == 4:  # double-quoted string (preserved)
+            if ch == '\\' and i + 1 < n:
+                i += 2; continue
+            if ch == '"':
+                state = 0
+            at_line_start = (ch == '\n')
+            i += 1
+
+        elif state == 5:  # heredoc (preserved)
+            if ch == '\n':
+                # Check if next line starts with heredoc identifier
+                j = i + 1
+                # Skip optional leading whitespace
+                while j < n and content[j] in ' \t':
+                    j += 1
+                if content[j:j + len(heredoc_id)] == heredoc_id:
+                    after = j + len(heredoc_id)
+                    if after >= n or content[after] in ('\n', ' ', '\t'):
+                        state = 0
+                        i = after
+                        at_line_start = False
+                        continue
+                at_line_start = True
+            else:
+                at_line_start = False
+            i += 1
+
+        else:
+            i += 1
+
+    return ''.join(out)
+
+
+def extract_ruby_imports(filepath):
+    """Extract imports from Ruby files using a comment-aware state machine."""
+    try:
+        with open(filepath, encoding='utf-8', errors='replace') as f:
+            content = f.read()
+    except (IOError, OSError):
+        return []
+
+    cleaned = _strip_ruby_comments(content)
+    imports = []
+
+    for line in cleaned.split('\n'):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        # require/require_relative/require_dependency/load
+        m = re.match(
+            r'''(?:require_relative|require_dependency|require|load)\s+['"](.+?)['"]''',
+            stripped
+        )
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+            continue
+
+        # autoload :Symbol, 'path'
+        m = re.match(r'''autoload\s+:\w+,\s*['"](.+?)['"]''', stripped)
+        if m:
+            path = m.group(1)
+            if path not in imports:
+                imports.append(path)
+
+    return imports
+
+
+# ---------------------------------------------------------------------------
 # Dispatch
 # ---------------------------------------------------------------------------
 
@@ -739,6 +1642,13 @@ _EXT_MAP = {
     '.go': extract_go_imports,
     '.rs': extract_rust_imports,
     '.java': extract_java_imports,
+    '.dart': extract_dart_imports,
+    '.kt': extract_kotlin_imports,
+    '.kts': extract_kotlin_imports,
+    '.swift': extract_swift_imports,
+    '.cs': extract_csharp_imports,
+    '.php': extract_php_imports,
+    '.rb': extract_ruby_imports,
 }
 
 
