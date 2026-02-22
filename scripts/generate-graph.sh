@@ -116,4 +116,6 @@ fi
 echo "$OUTPUT_FILE"
 
 # --- Attempt to open in browser (don't fail if unavailable) ---
-open "$OUTPUT_FILE" 2>/dev/null || xdg-open "$OUTPUT_FILE" 2>/dev/null || true
+if [ -z "${THYMUS_NO_OPEN:-}" ]; then
+  open "$OUTPUT_FILE" 2>/dev/null || xdg-open "$OUTPUT_FILE" 2>/dev/null || true
+fi
