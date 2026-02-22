@@ -51,49 +51,64 @@ SCORE=$(echo "$UNIQUE_ERROR_RULES $UNIQUE_WARNING_RULES $ERROR_COUNT $WARNING_CO
   printf "%d", (s<0 ? 0 : s);
 }')
 
-# --- Trend arrow (compare to last history snapshot) ---
-PREV_SCORE=""
-HISTORY_DIR="$THYMUS_DIR/history"
-mkdir -p "$HISTORY_DIR"
+# --- Compliance score ---
+if [ "$FILES_CHECKED" -gt 0 ]; then
+  COMPLIANCE=$(echo "$FILES_CHECKED $ERRORS" | awk '{printf "%.1f", (($1 - $2) / $1) * 100}')
+else
+  COMPLIANCE="100.0"
+fi
 
-if [ -d "$HISTORY_DIR" ]; then
-  LAST_SNAP=$(find "$HISTORY_DIR" -name "*.json" -type f | sort | tail -1)
-  if [ -n "$LAST_SNAP" ]; then
-    PREV_SCORE=$(jq '.score // empty' "$LAST_SNAP" 2>/dev/null || true)
+# --- Read previous compliance score from JSONL history ---
+HISTORY_FILE="$THYMUS_DIR/history.jsonl"
+PREV_SCORE=""
+if [ -f "$HISTORY_FILE" ] && [ -s "$HISTORY_FILE" ]; then
+  PREV_SCORE=$(tail -1 "$HISTORY_FILE" | jq -r '.compliance_score // empty' 2>/dev/null || true)
+fi
+
+# --- Compliance delta ---
+COMPLIANCE_DELTA=""
+COMPLIANCE_ARROW=""
+if [ -n "$PREV_SCORE" ] && [ "$PREV_SCORE" != "null" ]; then
+  COMPLIANCE_DELTA=$(echo "$COMPLIANCE $PREV_SCORE" | awk '{d=$1-$2; printf "%+.1f", d}')
+  if [ "$(echo "$COMPLIANCE $PREV_SCORE" | awk '{print ($1>$2)}')" = "1" ]; then
+    COMPLIANCE_ARROW="↑"
+  elif [ "$(echo "$COMPLIANCE $PREV_SCORE" | awk '{print ($1<$2)}')" = "1" ]; then
+    COMPLIANCE_ARROW="↓"
+  else
+    COMPLIANCE_ARROW="→"
   fi
 fi
 
+# --- Health score trend arrow (uses compliance as proxy) ---
 if [ -z "$PREV_SCORE" ]; then
   ARROW="→"
   TREND_TEXT="First scan"
-elif [ "$SCORE" -gt "$PREV_SCORE" ]; then
-  ARROW="↑"
-  TREND_TEXT="Up from $PREV_SCORE"
-elif [ "$SCORE" -lt "$PREV_SCORE" ]; then
-  ARROW="↓"
-  TREND_TEXT="Down from $PREV_SCORE"
 else
-  ARROW="→"
-  TREND_TEXT="No change from $PREV_SCORE"
+  # Compare current compliance to previous
+  COMP_CMP=$(echo "$COMPLIANCE $PREV_SCORE" | awk '{if ($1>$2) print "up"; else if ($1<$2) print "down"; else print "same"}')
+  if [ "$COMP_CMP" = "up" ]; then
+    ARROW="↑"
+    TREND_TEXT="Up from ${PREV_SCORE}%"
+  elif [ "$COMP_CMP" = "down" ]; then
+    ARROW="↓"
+    TREND_TEXT="Down from ${PREV_SCORE}%"
+  else
+    ARROW="→"
+    TREND_TEXT="No change from ${PREV_SCORE}%"
+  fi
 fi
 
-# --- Write history snapshot ---
-SNAPSHOT_FILE="$HISTORY_DIR/$(date -u +%Y-%m-%dT%H-%M-%S).json"
-echo "$SCAN" | jq \
-  --argjson score "$SCORE" \
-  --arg ts "$TIMESTAMP" \
-  '{score: $score, timestamp: $ts, stats: .stats, violations: .violations}' \
-  > "$SNAPSHOT_FILE"
-echo "[$TIMESTAMP] History snapshot: $SNAPSHOT_FILE" >> "$DEBUG_LOG"
+# --- Write history via append-history.sh ---
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+bash "$SCRIPT_DIR/append-history.sh" --scan "$SCAN_FILE"
 
-# --- Compute SVG sparkline from history scores ---
+# --- Compute SVG sparkline from last 30 compliance scores ---
 SVG_SPARKLINE=""
-SCORE_HISTORY=$(find "$HISTORY_DIR" -name "*.json" -type f | sort | tail -10 | while read -r f; do
-  jq '.score // empty' "$f" 2>/dev/null || true
-done | grep -E '^[0-9]+$' | tr '\n' ' ')
+if [ -f "$HISTORY_FILE" ] && [ -s "$HISTORY_FILE" ]; then
+  SCORE_HISTORY=$(tail -30 "$HISTORY_FILE" | jq -r '.compliance_score // empty' 2>/dev/null | grep -E '^[0-9]' | tr '\n' ' ')
 
-if [ "$(echo "$SCORE_HISTORY" | wc -w | tr -d ' ')" -ge 2 ]; then
-  SVG_SPARKLINE=$(echo "$SCORE_HISTORY" | python3 -c "
+  if [ "$(echo "$SCORE_HISTORY" | wc -w | tr -d ' ')" -ge 2 ]; then
+    SVG_SPARKLINE=$(echo "$SCORE_HISTORY" | python3 -c "
 import sys
 vals = list(map(float, sys.stdin.read().split()))
 if len(vals) < 2:
@@ -109,6 +124,89 @@ for i, v in enumerate(vals):
 color = '#30d158' if vals[-1] >= vals[0] else '#ff453a'
 print(f'<polyline points=\"{\" \".join(pts)}\" stroke=\"{color}\" stroke-width=\"1.5\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>')
 " 2>/dev/null || true)
+  fi
+fi
+
+# --- Per-rule mini sparklines (top 5 most-violated rules) ---
+RULE_SPARKLINES_HTML=""
+if [ -f "$HISTORY_FILE" ] && [ -s "$HISTORY_FILE" ]; then
+  TOP_RULES=$(tail -30 "$HISTORY_FILE" | jq -s '[.[].by_rule // {} | to_entries[]] | group_by(.key) | map({rule: .[0].key, total: (map(.value) | add)}) | sort_by(-.total) | .[0:5] | .[].rule' -r 2>/dev/null || true)
+
+  for rule in $TOP_RULES; do
+    RULE_COUNTS=$(tail -30 "$HISTORY_FILE" | jq -r --arg r "$rule" '.by_rule[$r] // 0' 2>/dev/null | tr '\n' ' ')
+    RULE_SVG=$(echo "$RULE_COUNTS" | python3 -c "
+import sys
+vals = list(map(float, sys.stdin.read().split()))
+if len(vals) < 2:
+    sys.exit()
+w, h = 150, 30
+mn, mx = min(vals), max(vals)
+rng = mx - mn if mx != mn else 1
+pts = []
+for i, v in enumerate(vals):
+    x = i * (w - 1) / max(len(vals) - 1, 1)
+    y = h - ((v - mn) / rng) * (h - 4) - 2
+    pts.append(f'{x:.1f},{y:.1f}')
+color = '#89b4fa' if vals[-1] <= vals[0] else '#f38ba8'
+print(f'<svg width=\"{w}\" height=\"{h}\" style=\"display:inline-block;vertical-align:middle;overflow:visible\"><polyline points=\"{\" \".join(pts)}\" stroke=\"{color}\" stroke-width=\"1.5\" fill=\"none\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/></svg>')
+" 2>/dev/null || true)
+    CURRENT_COUNT=$(tail -1 "$HISTORY_FILE" | jq -r --arg r "$rule" '.by_rule[$r] // 0' 2>/dev/null || echo "0")
+    if [ -n "$RULE_SVG" ]; then
+      RULE_SPARKLINES_HTML="${RULE_SPARKLINES_HTML}<div class=\"rule-trend\"><code class=\"rule-name\">${rule}</code>${RULE_SVG}<span class=\"rule-count\">${CURRENT_COUNT}</span></div>"
+    fi
+  done
+fi
+
+# --- Worst-drift callout ---
+WORST_DRIFT_HTML=""
+if [ -f "$HISTORY_FILE" ]; then
+  LINE_COUNT=$(wc -l < "$HISTORY_FILE" | tr -d ' ')
+  if [ "$LINE_COUNT" -ge 10 ]; then
+    WORST_DRIFT=$(python3 -c "
+import json, sys
+lines = open('$HISTORY_FILE').readlines()
+if len(lines) >= 10:
+    old = json.loads(lines[-10]).get('by_rule', {})
+    new = json.loads(lines[-1]).get('by_rule', {})
+    diffs = {}
+    for r in set(list(old.keys()) + list(new.keys())):
+        diff = new.get(r, 0) - old.get(r, 0)
+        if diff > 0:
+            diffs[r] = diff
+    if diffs:
+        worst = max(diffs, key=diffs.get)
+        print(f'{worst}|{diffs[worst]}')
+" 2>/dev/null || true)
+    if [ -n "$WORST_DRIFT" ]; then
+      DRIFT_RULE=$(echo "$WORST_DRIFT" | cut -d'|' -f1)
+      DRIFT_INCREASE=$(echo "$WORST_DRIFT" | cut -d'|' -f2)
+      WORST_DRIFT_HTML="<div class=\"drift-callout\"><span class=\"drift-icon\">↗</span> Worst drift: <code>$DRIFT_RULE</code> — increased by $DRIFT_INCREASE violation(s) over last 10 scans</div>"
+    fi
+  fi
+fi
+
+# --- Sprint summary (last 14 days, 5+ scans) ---
+SPRINT_HTML=""
+if [ -f "$HISTORY_FILE" ]; then
+  SPRINT_DATA=$(python3 -c "
+import json, sys
+from datetime import datetime, timedelta
+lines = open('$HISTORY_FILE').readlines()
+cutoff = (datetime.utcnow() - timedelta(days=14)).isoformat() + 'Z'
+recent = [json.loads(l) for l in lines if json.loads(l).get('timestamp','') >= cutoff]
+if len(recent) >= 5:
+    first_score = recent[0].get('compliance_score', 0)
+    last_score = recent[-1].get('compliance_score', 0)
+    total_errors = sum(r.get('violations',{}).get('error',0) for r in recent)
+    print(f'{len(recent)}|{first_score}|{last_score}|{total_errors}')
+" 2>/dev/null || true)
+  if [ -n "$SPRINT_DATA" ]; then
+    SPRINT_COUNT=$(echo "$SPRINT_DATA" | cut -d'|' -f1)
+    SPRINT_FIRST=$(echo "$SPRINT_DATA" | cut -d'|' -f2)
+    SPRINT_LAST=$(echo "$SPRINT_DATA" | cut -d'|' -f3)
+    SPRINT_ERRORS=$(echo "$SPRINT_DATA" | cut -d'|' -f4)
+    SPRINT_HTML="<div class=\"sprint-card\"><p class=\"sprint-title\">Sprint Summary (last 14 days)</p><p class=\"sprint-body\">${SPRINT_COUNT} scans &middot; Compliance: ${SPRINT_FIRST}% → ${SPRINT_LAST}% &middot; ${SPRINT_ERRORS} total errors</p></div>"
+  fi
 fi
 
 # --- Module breakdown ---
@@ -162,6 +260,17 @@ fi
 SCORE_COLOR="#30d158"
 [ "$SCORE" -lt 80 ] && SCORE_COLOR="#ff9f0a"
 [ "$SCORE" -lt 50 ] && SCORE_COLOR="#ff453a"
+
+COMPLIANCE_COLOR="#30d158"
+COMPLIANCE_INT=$(echo "$COMPLIANCE" | awk '{printf "%d", $1}')
+[ "$COMPLIANCE_INT" -lt 80 ] && COMPLIANCE_COLOR="#ff9f0a"
+[ "$COMPLIANCE_INT" -lt 50 ] && COMPLIANCE_COLOR="#ff453a"
+
+COMPLIANCE_DELTA_CLASS=""
+if [ -n "$COMPLIANCE_ARROW" ]; then
+  [ "$COMPLIANCE_ARROW" = "↑" ] && COMPLIANCE_DELTA_CLASS="up"
+  [ "$COMPLIANCE_ARROW" = "↓" ] && COMPLIANCE_DELTA_CLASS="down"
+fi
 
 SCOPE_LABEL="entire project"
 [ -n "$SCOPE" ] && SCOPE_LABEL="$SCOPE"
@@ -319,6 +428,29 @@ cat > "$REPORT_FILE" <<HTMLEOF
     .proj-body { font-size: 13px; color: #8e8e93; margin-bottom: 10px; }
     .proj-rec { font-size: 12px; color: #636366; border-left: 2px solid #48484a; padding-left: 12px; }
 
+    /* Compliance score */
+    .compliance { margin-bottom: 16px; }
+    .compliance-num { font-size: 48px; font-weight: 200; line-height: 1; font-variant-numeric: tabular-nums; }
+    .compliance-pct { font-size: 20px; font-weight: 200; color: #48484a; }
+    .compliance-delta { font-size: 16px; margin-left: 8px; }
+    .compliance-delta.up { color: #30d158; }
+    .compliance-delta.down { color: #ff453a; }
+
+    /* Rule trends */
+    .rule-trend { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #2c2c2e; }
+    .rule-trend:last-child { border-bottom: none; }
+    .rule-name { font-size: 11px; color: #8e8e93; min-width: 200px; }
+    .rule-count { font-size: 12px; color: #f5f5f7; font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+
+    /* Drift callout */
+    .drift-callout { background: rgba(243,139,168,.08); border-left: 2px solid #f38ba8; padding: 12px 16px; font-size: 12px; color: #cdd6f4; margin-top: 16px; border-radius: 0 8px 8px 0; }
+    .drift-icon { color: #f38ba8; }
+
+    /* Sprint card */
+    .sprint-card { background: #2c2c2e; border-radius: 14px; padding: 22px 26px; margin-top: 16px; }
+    .sprint-title { font-size: 13px; font-weight: 600; color: #f5f5f7; margin-bottom: 6px; }
+    .sprint-body { font-size: 13px; color: #8e8e93; }
+
     footer {
       font-size: 11px;
       color: #48484a;
@@ -360,6 +492,17 @@ cat > "$REPORT_FILE" <<HTMLEOF
     </p>
   </div>
 
+  <div class="compliance">
+    <div class="score-display">
+      <span class="compliance-num" style="color:${COMPLIANCE_COLOR}">${COMPLIANCE}</span>
+      <span class="compliance-pct">%</span>
+$(if [ -n "$COMPLIANCE_DELTA" ] && [ -n "$COMPLIANCE_ARROW" ]; then
+  echo "      <span class=\"compliance-delta ${COMPLIANCE_DELTA_CLASS}\">${COMPLIANCE_ARROW} ${COMPLIANCE_DELTA}</span>"
+fi)
+    </div>
+    <p class="score-meta">Compliance — files passing / files checked</p>
+  </div>
+
   <section>
     <p class="sec-head">Modules</p>
     <hr>
@@ -377,8 +520,16 @@ cat > "$REPORT_FILE" <<HTMLEOF
   </section>
 
 $(if [ -n "$SVG_SPARKLINE" ]; then
-  echo "  <section><p class=\"sec-head\">Health Trend</p><hr><div class=\"chart-wrap\"><svg width=\"300\" height=\"60\" style=\"display:block;overflow:visible\">$SVG_SPARKLINE</svg></div></section>"
+  echo "  <section><p class=\"sec-head\">Compliance Trend</p><hr><div class=\"chart-wrap\"><svg width=\"300\" height=\"60\" style=\"display:block;overflow:visible\">$SVG_SPARKLINE</svg></div></section>"
 fi)
+
+$(if [ -n "$RULE_SPARKLINES_HTML" ]; then
+  echo "  <section><p class=\"sec-head\">Rule Trends (Top 5)</p><hr>${RULE_SPARKLINES_HTML}</section>"
+fi)
+
+  ${WORST_DRIFT_HTML}
+
+  ${SPRINT_HTML}
 
   ${PROJECTION_HTML}
 
@@ -393,6 +544,7 @@ open "$REPORT_FILE" 2>/dev/null || xdg-open "$REPORT_FILE" 2>/dev/null || echo "
 # Output summary JSON for Claude to narrate
 jq -n \
   --argjson score "$SCORE" \
+  --argjson compliance "$COMPLIANCE" \
   --arg arrow "$ARROW" \
   --arg trend_text "$TREND_TEXT" \
   --argjson total "$TOTAL" \
@@ -400,6 +552,6 @@ jq -n \
   --argjson warnings "$WARNINGS" \
   --argjson files_checked "$FILES_CHECKED" \
   --arg report_path "$REPORT_FILE" \
-  '{score:$score, arrow:$arrow, trend_text:$trend_text,
+  '{score:$score, compliance:$compliance, arrow:$arrow, trend_text:$trend_text,
     stats:{total:$total,errors:$errors,warnings:$warnings,files_checked:$files_checked},
     report_path:$report_path}'
