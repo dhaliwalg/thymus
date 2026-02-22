@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Thymus — An immune system for your codebase</title>
-  <meta name="description" content="Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.">
+  <meta name="description" content="Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@200;400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
@@ -490,7 +490,7 @@
     <section class="hero">
       <h1>Thymus</h1>
       <p class="tagline">An immune system for your codebase</p>
-      <p class="description">Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, and every git commit.</p>
+      <p class="description">Architectural invariants for AI-assisted codebases. Works in Claude Code, VS Code, Cursor, Windsurf, CI, AGENTS.md, and every git commit.</p>
       <a href="https://github.com/dhaliwalg/thymus" class="gh-link">View on GitHub</a>
     </section>
 
@@ -539,7 +539,13 @@ export PATH="$PATH:$(pwd)/thymus/bin"
 thymus scan                  <span class="comment"># full project</span>
 thymus scan --diff           <span class="comment"># staged files only</span>
 thymus check src/file.ts     <span class="comment"># single file</span>
-thymus init                  <span class="comment"># set up .thymus/ in a new project</span></pre>
+thymus init                  <span class="comment"># set up .thymus/ in a new project</span>
+
+<span class="comment"># Output formats</span>
+thymus scan --format text    <span class="comment"># human-readable (default in terminal)</span>
+thymus scan --format json    <span class="comment"># structured JSON</span>
+thymus scan --format github  <span class="comment"># GitHub annotations (::error / ::warning)</span>
+thymus scan --format sarif   <span class="comment"># SARIF 2.1.0 for GitHub Code Scanning</span></pre>
           <p class="note">Requires bash 4.0+, python3, jq, git.</p>
         </div>
         <div class="tab-panel" data-panel="pre-commit" hidden>
@@ -554,7 +560,7 @@ ln -sf /path/to/thymus/integrations/pre-commit/thymus-pre-commit .git/hooks/pre-
       entry: bin/thymus scan --diff --format text
       language: script
       pass_filenames: false</pre>
-          <p class="note">Blocks commits with error-severity violations. Warnings pass through. Bypass with --no-verify.</p>
+          <p class="note">Blocks commits with error-severity violations. Warnings pass through. Set <code style="font-family: var(--font-mono); color: var(--accent);">THYMUS_STRICT=1</code> to also block on warnings. Bypass with --no-verify.</p>
         </div>
         <div class="tab-panel" data-panel="github-actions" hidden>
           <pre><span class="comment"># .github/workflows/thymus.yml</span>
@@ -569,12 +575,15 @@ jobs:
           fetch-depth: 0
       - name: Clone Thymus
         run: git clone https://github.com/dhaliwalg/thymus.git /tmp/thymus
+      <span class="comment"># Option 1: GitHub annotations on the PR</span>
       - name: Run Thymus
-        run: |
-          /tmp/thymus/bin/thymus scan --diff --format json | jq -r '.[] |
-            if .severity == "error" then "::error file=\(.file),line=\(.line)::\(.message)"
-            else "::warning file=\(.file),line=\(.line)::\(.message)"
-            end'</pre>
+        run: /tmp/thymus/bin/thymus scan --diff --format github
+      <span class="comment"># Option 2: SARIF upload for Code Scanning dashboard</span>
+      - name: Run Thymus (SARIF)
+        run: /tmp/thymus/bin/thymus scan --format sarif > results.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif</pre>
         </div>
       </div>
     </section>
@@ -618,6 +627,13 @@ jobs:
         <li>
           <span class="step-num">5</span>
           <div>
+            <h3><code>/thymus:agents-md</code></h3>
+            <p>Generates an AGENTS.md with your rules as natural language. AI coding agents (Claude Code, Copilot, Cursor) read it automatically and follow your architecture during code generation.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num">6</span>
+          <div>
             <h3><code>/thymus:health</code></h3>
             <p>Generates an HTML health report with score, trend sparklines, and debt projections.</p>
           </div>
@@ -643,15 +659,19 @@ jobs:
         </div>
         <div class="integration">
           <h3>GitHub Actions</h3>
-          <p>Annotates PRs with inline violation comments.</p>
+          <p>PR annotations via <code style="font-family: var(--font-mono); font-size: 0.8em;">--format github</code>, or SARIF upload for Code Scanning dashboards.</p>
+        </div>
+        <div class="integration">
+          <h3>AGENTS.md</h3>
+          <p>Auto-generated natural language rules that all AI coding agents read and follow &mdash; Copilot, Cursor, Windsurf, and more.</p>
         </div>
         <div class="integration">
           <h3>Claude Code</h3>
           <p>The full experience &mdash; real-time hooks, natural language rules, health reports.</p>
         </div>
         <div class="integration">
-          <h3>JSON API</h3>
-          <p>Documented violation schema for building custom integrations.</p>
+          <h3>JSON / SARIF API</h3>
+          <p>Structured output in JSON, GitHub annotation, or SARIF 2.1.0 format for custom integrations.</p>
         </div>
       </div>
     </section>
@@ -753,7 +773,7 @@ jobs:
 
   <footer>
     <p class="zero-deps">Zero dependencies. Bash + Python + jq.</p>
-    <p class="editors">Claude Code &middot; VS Code &middot; Cursor &middot; Windsurf &middot; Git hooks &middot; GitHub Actions &middot; Any editor.</p>
+    <p class="editors">Claude Code &middot; VS Code &middot; Cursor &middot; Windsurf &middot; AGENTS.md &middot; Git hooks &middot; GitHub Actions &middot; SARIF &middot; Any editor.</p>
     <a href="https://github.com/dhaliwalg/thymus" class="gh-link">GitHub</a>
     <p class="credit">Built by Gurjit Dhaliwal</p>
   </footer>
