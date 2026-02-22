@@ -179,7 +179,7 @@ else
   [ -n "$SCOPE" ] && SCAN_ROOT="$PWD/$SCOPE"
   while IFS= read -r f; do
     [ -n "$f" ] && FILES+=("$(echo "$f" | sed "s|$PWD/||")")
-  done < <(find "$SCAN_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" \) \
+  done < <(find "$SCAN_ROOT" -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.java" -o -name "*.go" -o -name "*.rs" -o -name "*.dart" -o -name "*.kt" -o -name "*.kts" -o -name "*.swift" -o -name "*.cs" -o -name "*.php" -o -name "*.rb" \) \
     "${IGNORED_ARGS[@]}" 2>/dev/null | sort)
 fi
 
@@ -242,11 +242,16 @@ for rel_path in "${FILES[@]}"; do
       convention)
         rule_text=$(echo "$inv" | jq -r '.rule // empty')
         if echo "$rule_text" | grep -qi "test"; then
-          if [[ "$rel_path" =~ \.(ts|js|py|java|go|rs)$ ]] \
+          if [[ "$rel_path" =~ \.(ts|js|py|java|go|rs|dart|kt|kts|swift|cs|php|rb)$ ]] \
              && [[ ! "$rel_path" =~ \.(test|spec)\. ]] \
              && [[ ! "$rel_path" =~ \.d\.ts$ ]] \
              && [[ ! "$rel_path" =~ (Test|Tests|IT|Spec)\.java$ ]] \
-             && [[ ! "$rel_path" =~ _test\.go$ ]]; then
+             && [[ ! "$rel_path" =~ _test\.(go|dart|rb)$ ]] \
+             && [[ ! "$rel_path" =~ _spec\.rb$ ]] \
+             && [[ ! "$rel_path" =~ (Test|Tests)\.kt$ ]] \
+             && [[ ! "$rel_path" =~ (Tests)\.swift$ ]] \
+             && [[ ! "$rel_path" =~ (Tests|Test)\.cs$ ]] \
+             && [[ ! "$rel_path" =~ (Test)\.php$ ]]; then
             base="${abs_path%.*}"
             ext="${abs_path##*.}"
             has_test=false
@@ -287,6 +292,84 @@ for rel_path in "${FILES[@]}"; do
               if [ -f "$PWD/tests/${basename_no_ext}.rs" ] || \
                  [ -f "$PWD/tests/test_${basename_no_ext}.rs" ]; then
                 has_test=true
+              fi
+            elif [ "$ext" = "dart" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}_test.dart" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/lib/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|/lib/|/test/|')
+                test_mirror_base="${test_mirror%.*}"
+                if [ -f "${test_mirror_base}_test.dart" ]; then
+                  has_test=true
+                fi
+              fi
+            elif [ "$ext" = "kt" ] || [ "$ext" = "kts" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}Test.kt" ] || \
+                 [ -f "${dir}/${basename_no_ext}Tests.kt" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/main/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|src/main/kotlin|src/test/kotlin|' | sed 's|src/main/java|src/test/java|')
+                test_mirror_base="${test_mirror%.*}"
+                if [ -f "${test_mirror_base}Test.kt" ] || \
+                   [ -f "${test_mirror_base}Tests.kt" ]; then
+                  has_test=true
+                fi
+              fi
+            elif [ "$ext" = "swift" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}Tests.swift" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/Sources/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|/Sources/|/Tests/|')
+                test_mirror_base="${test_mirror%.*}"
+                if [ -f "${test_mirror_base}Tests.swift" ]; then
+                  has_test=true
+                fi
+              fi
+            elif [ "$ext" = "cs" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}Tests.cs" ] || \
+                 [ -f "${dir}/${basename_no_ext}Test.cs" ]; then
+                has_test=true
+              fi
+            elif [ "$ext" = "php" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}Test.php" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/src/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|/src/|/tests/|')
+                test_mirror_base="${test_mirror%.*}"
+                if [ -f "${test_mirror_base}Test.php" ]; then
+                  has_test=true
+                fi
+              fi
+            elif [ "$ext" = "rb" ]; then
+              basename_no_ext=$(basename "${base}")
+              dir=$(dirname "${abs_path}")
+              if [ -f "${dir}/${basename_no_ext}_test.rb" ] || \
+                 [ -f "${dir}/${basename_no_ext}_spec.rb" ]; then
+                has_test=true
+              fi
+              if [ "$has_test" = "false" ] && [[ "$abs_path" == *"/app/"* ]]; then
+                test_mirror=$(echo "$abs_path" | sed 's|/app/|/test/|')
+                spec_mirror=$(echo "$abs_path" | sed 's|/app/|/spec/|')
+                test_mirror_base="${test_mirror%.*}"
+                spec_mirror_base="${spec_mirror%.*}"
+                if [ -f "${test_mirror_base}_test.rb" ] || \
+                   [ -f "${spec_mirror_base}_spec.rb" ]; then
+                  has_test=true
+                fi
               fi
             fi
             if [ "$has_test" = "false" ]; then

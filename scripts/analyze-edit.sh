@@ -219,11 +219,16 @@ for ((i=0; i<invariant_count; i++)); do
       [ -f "$file_path" ] || continue
       rule_text=$(echo "$inv" | jq -r '.rule // empty')
       if echo "$rule_text" | grep -qi "test"; then
-        if [[ "$REL_PATH" =~ \.(ts|js|py|java|go|rs)$ ]] \
+        if [[ "$REL_PATH" =~ \.(ts|js|py|java|go|rs|dart|kt|kts|swift|cs|php|rb)$ ]] \
            && [[ ! "$REL_PATH" =~ \.(test|spec)\. ]] \
            && [[ ! "$REL_PATH" =~ \.d\.ts$ ]] \
            && [[ ! "$REL_PATH" =~ (Test|Tests|IT|Spec)\.java$ ]] \
-           && [[ ! "$REL_PATH" =~ _test\.go$ ]]; then
+           && [[ ! "$REL_PATH" =~ _test\.(go|dart|rb)$ ]] \
+           && [[ ! "$REL_PATH" =~ _spec\.rb$ ]] \
+           && [[ ! "$REL_PATH" =~ (Test|Tests)\.kt$ ]] \
+           && [[ ! "$REL_PATH" =~ (Tests)\.swift$ ]] \
+           && [[ ! "$REL_PATH" =~ (Tests|Test)\.cs$ ]] \
+           && [[ ! "$REL_PATH" =~ (Test)\.php$ ]]; then
           base="${file_path%.*}"
           ext="${file_path##*.}"
           has_test=false
@@ -267,6 +272,93 @@ for ((i=0; i<invariant_count; i++)); do
             if [ -f "$PWD/tests/${basename_no_ext}.rs" ] || \
                [ -f "$PWD/tests/test_${basename_no_ext}.rs" ]; then
               has_test=true
+            fi
+          elif [ "$ext" = "dart" ]; then
+            # Dart convention: lib/foo.dart → test/foo_test.dart
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}_test.dart" ]; then
+              has_test=true
+            fi
+            # Check test/ mirror of lib/
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/lib/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|/lib/|/test/|')
+              test_mirror_base="${test_mirror%.*}"
+              if [ -f "${test_mirror_base}_test.dart" ]; then
+                has_test=true
+              fi
+            fi
+          elif [ "$ext" = "kt" ] || [ "$ext" = "kts" ]; then
+            # Kotlin convention: src/main/kotlin/Foo.kt → src/test/kotlin/FooTest.kt
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}Test.kt" ] || \
+               [ -f "${dir}/${basename_no_ext}Tests.kt" ]; then
+              has_test=true
+            fi
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/src/main/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|src/main/kotlin|src/test/kotlin|' | sed 's|src/main/java|src/test/java|')
+              test_mirror_base="${test_mirror%.*}"
+              if [ -f "${test_mirror_base}Test.kt" ] || \
+                 [ -f "${test_mirror_base}Tests.kt" ]; then
+                has_test=true
+              fi
+            fi
+          elif [ "$ext" = "swift" ]; then
+            # Swift convention: Foo.swift → FooTests.swift
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}Tests.swift" ]; then
+              has_test=true
+            fi
+            # Check Tests/ mirror of Sources/
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/Sources/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|/Sources/|/Tests/|')
+              test_mirror_base="${test_mirror%.*}"
+              if [ -f "${test_mirror_base}Tests.swift" ]; then
+                has_test=true
+              fi
+            fi
+          elif [ "$ext" = "cs" ]; then
+            # C# convention: Foo.cs → FooTests.cs
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}Tests.cs" ] || \
+               [ -f "${dir}/${basename_no_ext}Test.cs" ]; then
+              has_test=true
+            fi
+          elif [ "$ext" = "php" ]; then
+            # PHP convention: Foo.php → FooTest.php in tests/
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}Test.php" ]; then
+              has_test=true
+            fi
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/src/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|/src/|/tests/|')
+              test_mirror_base="${test_mirror%.*}"
+              if [ -f "${test_mirror_base}Test.php" ]; then
+                has_test=true
+              fi
+            fi
+          elif [ "$ext" = "rb" ]; then
+            # Ruby convention: foo.rb → foo_test.rb or foo_spec.rb
+            basename_no_ext=$(basename "${base}")
+            dir=$(dirname "${file_path}")
+            if [ -f "${dir}/${basename_no_ext}_test.rb" ] || \
+               [ -f "${dir}/${basename_no_ext}_spec.rb" ]; then
+              has_test=true
+            fi
+            # Check test/ or spec/ mirror
+            if [ "$has_test" = "false" ] && [[ "$file_path" == *"/app/"* ]]; then
+              test_mirror=$(echo "$file_path" | sed 's|/app/|/test/|')
+              spec_mirror=$(echo "$file_path" | sed 's|/app/|/spec/|')
+              test_mirror_base="${test_mirror%.*}"
+              spec_mirror_base="${spec_mirror%.*}"
+              if [ -f "${test_mirror_base}_test.rb" ] || \
+                 [ -f "${spec_mirror_base}_spec.rb" ]; then
+                has_test=true
+              fi
             fi
           fi
           if [ "$has_test" = "false" ]; then

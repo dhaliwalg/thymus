@@ -4,6 +4,9 @@ set -euo pipefail
 # thymus-pre-commit — Git pre-commit hook for Thymus
 # Scans staged files against architectural invariants.
 # Exit 0 = pass (or thymus not configured), Exit 1 = blocked (error violations)
+#
+# Environment variables:
+#   THYMUS_STRICT=1  — Block commits on warnings too (default: only errors block)
 
 # Find thymus binary relative to repo root
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -34,17 +37,29 @@ if [ "$COUNT" -eq 0 ]; then
   exit 0
 fi
 
-echo "thymus: $COUNT architectural violation(s) found in staged files:"
-echo "$VIOLATIONS" | jq -r '.[] |
-  "  \(.severity): \(.file)" +
-  (if .line then ":\(.line)" else "" end) +
-  " — \(.message)"'
-
-# Check if any are errors (not just warnings)
 ERRORS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "error")] | length')
+WARNINGS=$(echo "$VIOLATIONS" | jq '[.[] | select(.severity == "warn" or .severity == "warning")] | length')
+
+echo ""
+echo "thymus: $COUNT architectural violation(s) found in staged files ($ERRORS error(s), $WARNINGS warning(s))"
+echo ""
+echo "$VIOLATIONS" | jq -r '.[] |
+  "  " + (if .severity == "error" then "✗" else "⚠" end) +
+  " \(.file)" +
+  (if .line then ":\(.line)" else "" end) +
+  " — \(.message)" +
+  (if .import_path then " (import: \(.import_path))" else "" end)'
+
+# Determine whether to block
+STRICT="${THYMUS_STRICT:-0}"
+
 if [ "$ERRORS" -gt 0 ]; then
   echo ""
-  echo "Commit blocked. Fix $ERRORS error(s) or use --no-verify to bypass."
+  echo "Commit blocked: $ERRORS error-severity violation(s). Fix them or use --no-verify to bypass."
+  exit 1
+elif [ "$STRICT" = "1" ] && [ "$WARNINGS" -gt 0 ]; then
+  echo ""
+  echo "Commit blocked (THYMUS_STRICT=1): $WARNINGS warning(s) found. Fix them or unset THYMUS_STRICT."
   exit 1
 else
   echo ""
