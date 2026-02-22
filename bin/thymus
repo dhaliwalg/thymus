@@ -24,7 +24,9 @@ Usage: thymus <command> [options]
 Commands:
   scan [--diff] [--files f1 f2] [--format json|text]   Scan project or staged files
   check <file> [--format json|text]                     Check single file against invariants
-  graph                                             Generate dependency graph HTML
+  history [--json]                                      Show scan history
+  score                                                 Show current compliance score
+  graph                                                 Generate dependency graph HTML
   init [dir]                                            Initialize .thymus/ in a project
   version                                               Print version
 
@@ -57,6 +59,48 @@ case "$COMMAND" in
     ;;
   graph)
     exec bash "$BIN_DIR/../scripts/generate-graph.sh" "$@"
+    ;;
+  history)
+    THYMUS_DIR="$PWD/.thymus"
+    HISTORY="$THYMUS_DIR/history.jsonl"
+    if [ ! -f "$HISTORY" ]; then
+      echo "No history found. Run a scan first." >&2
+      exit 2
+    fi
+    if [[ "${1:-}" == "--json" ]]; then
+      cat "$HISTORY"
+    else
+      echo "Last 10 scans:"
+      echo "TIMESTAMP                SCORE   ERR  WARN  COMMIT"
+      tail -10 "$HISTORY" | while IFS= read -r line; do
+        ts=$(echo "$line" | jq -r '.timestamp')
+        score=$(echo "$line" | jq -r '.compliance_score')
+        err=$(echo "$line" | jq -r '.violations.error')
+        warn=$(echo "$line" | jq -r '.violations.warn')
+        commit=$(echo "$line" | jq -r '.commit')
+        printf "%-24s %5s%%  %3s  %4s  %s\n" "$ts" "$score" "$err" "$warn" "$commit"
+      done
+    fi
+    exit 0
+    ;;
+  score)
+    THYMUS_DIR="$PWD/.thymus"
+    HISTORY="$THYMUS_DIR/history.jsonl"
+    if [ ! -f "$HISTORY" ]; then
+      echo "No history found. Run a scan first." >&2
+      exit 2
+    fi
+    LAST=$(tail -1 "$HISTORY")
+    SCORE=$(echo "$LAST" | jq -r '.compliance_score')
+    PREV=$(tail -2 "$HISTORY" | head -1)
+    PREV_SCORE=$(echo "$PREV" | jq -r '.compliance_score // empty' 2>/dev/null || true)
+    if [ -n "$PREV_SCORE" ] && [ "$PREV_SCORE" != "$SCORE" ]; then
+      DELTA=$(echo "$SCORE $PREV_SCORE" | awk '{printf "%+.1f", $1-$2}')
+      echo "Compliance: ${SCORE}% (${DELTA}% from last scan)"
+    else
+      echo "Compliance: ${SCORE}%"
+    fi
+    exit 0
     ;;
   init)
     exec "$BIN_DIR/thymus-init" "$@"
