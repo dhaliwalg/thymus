@@ -1,4 +1,7 @@
 history/
 history.jsonl
 report.html
+health-summary.json
+graph.html
+graph-summary.json
 calibration.json
