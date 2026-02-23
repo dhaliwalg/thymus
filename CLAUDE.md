@@ -85,7 +85,7 @@ thymus infer [--min-confidence N] [--apply]  # Infer boundary rules
 - **analyze-edit.py must complete in under 2 seconds.** It runs on every file edit. Performance is tested in verify-phase2.sh. The Python implementation typically completes in ~25ms.
 - **invariants.yml indentation is structural:** 2 spaces before `- id:`, 4 spaces for fields, 6 spaces for list items. The Python parser depends on this exact format.
 - **`.thymus/` is auto-added to .gitignore** by load-baseline.py. Don't break this.
-- **`build-adjacency.py` is shared** between `generate-graph.py` (graph visualization) and `infer-rules.sh` (rule inference). Changes to its output format affect both consumers.
+- **`build-adjacency.py` is used by `infer-rules.sh`** (rule inference). `generate-graph.py` absorbed this logic in-process. Changes to `build-adjacency.py` output format affect `infer-rules.sh`.
 - **`.thymus/history.jsonl` replaces the old per-file `.thymus/history/*.json` snapshots.** `append-history.py` handles atomic writes with FIFO cap at 500 entries and exposes importable functions for in-process use by `session-report.py` and `generate-report.py`.
 - **Python is stdlib-only.** No pip dependencies. All scripts use only the Python 3 standard library.
 - **Bash wrappers maintain backward compatibility.** Each `.sh` file delegates to its `.py` counterpart via `exec python3`. Tests, skills, and external callers continue to work unchanged.

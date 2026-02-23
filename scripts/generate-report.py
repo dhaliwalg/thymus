@@ -19,25 +19,7 @@ import sys
 
 # Add lib/ to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-from core import debug_log
-
-# Import append-history functions IN-PROCESS
-from importlib.util import spec_from_file_location, module_from_spec
-_append_history_mod = None
-
-
-def _get_append_history_mod():
-    """Lazy-load append-history.py module."""
-    global _append_history_mod
-    if _append_history_mod is not None:
-        return _append_history_mod
-    scripts_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(scripts_dir, "append-history.py")
-    spec = spec_from_file_location("append_history", path)
-    mod = module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    _append_history_mod = mod
-    return mod
+from core import debug_log, get_append_history_mod
 
 
 def _html_escape(s):
@@ -266,7 +248,7 @@ def main():
             trend_text = f"No change from {prev_score}%"
 
     # --- Write history via append-history IN-PROCESS ---
-    ah = _get_append_history_mod()
+    ah = get_append_history_mod()
     entry = ah.build_history_entry(scan)
     ah.append_history(entry, thymus_dir)
 
@@ -376,7 +358,7 @@ def main():
     sprint_html = ""
     if history_lines:
         try:
-            cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=14)).isoformat() + "Z"
+            cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat().replace("+00:00", "Z")
             recent = []
             for line in history_lines:
                 try:

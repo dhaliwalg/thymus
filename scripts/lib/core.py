@@ -217,6 +217,9 @@ def file_in_scope(rel_path: str, invariant: dict) -> bool:
 # Lazy-loaded reference to extract-imports.py's extract_imports()
 _extract_imports_fn = None
 
+# Lazy-loaded reference to append-history.py module
+_append_history_mod = None
+
 
 def _get_extract_imports():
     """Import extract_imports from scripts/extract-imports.py in-process."""
@@ -336,6 +339,26 @@ def find_source_files(root: str = None) -> list:
 # ---------------------------------------------------------------------------
 # Build import entries — identical to common.sh build_import_entries
 # ---------------------------------------------------------------------------
+
+
+def get_append_history_mod():
+    """Lazy-load the append-history.py module for in-process history appending.
+
+    Returns the module object with build_history_entry() and append_history().
+    Shared by session-report.py and generate-report.py to avoid duplication.
+    """
+    global _append_history_mod
+    if _append_history_mod is not None:
+        return _append_history_mod
+    import importlib.util
+    lib_dir = os.path.dirname(os.path.abspath(__file__))
+    scripts_dir = os.path.dirname(lib_dir)
+    path = os.path.join(scripts_dir, "append-history.py")
+    spec = importlib.util.spec_from_file_location("append_history", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    _append_history_mod = mod
+    return mod
 
 
 def build_import_entries(file_list: list, root: str = None) -> list:

@@ -16,15 +16,20 @@ import os
 import re
 import sys
 
+# Add lib/ to path
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
+from core import debug_log, THYMUS_IGNORED_PATHS
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-IGNORED_PATHS = {
-    "node_modules", "dist", ".next", ".git", "coverage",
-    "__pycache__", ".venv", "vendor", "target", "build", ".thymus",
-}
+IGNORED_PATHS = set(THYMUS_IGNORED_PATHS)
 
+# Subset of source extensions used for test gap detection — matches the
+# original bash detect-patterns.sh which only checked these 6 languages.
+# The full set in core.py includes additional languages (dart, kotlin, etc.)
+# that don't have test-gap detection logic here.
 SOURCE_EXTENSIONS = {".ts", ".js", ".py", ".java", ".go", ".rs"}
 
 # Files to skip when checking for test gaps
@@ -36,18 +41,8 @@ TEST_FILE_PATTERNS = re.compile(
 # Multi-part extension pattern (e.g., .service.ts, .model.py)
 MULTI_EXT_RE = re.compile(r'\.[a-zA-Z]+\.[a-z]+$')
 
-KNOWN_LAYERS = {
-    "routes", "controllers", "controller", "services", "service",
-    "repositories", "repository", "models", "model", "middleware",
-    "utils", "util", "lib", "helpers", "types", "handlers", "resolvers",
-    "stores", "hooks", "components", "pages", "app", "api", "db",
-    "database", "config", "auth", "tests", "test", "__tests__",
-    "entity", "entities", "dto", "converter", "mapper", "filter",
-    "interceptor", "domain", "infrastructure", "adapter", "port",
-    "presenter", "exception", "exceptions",
-}
-
-# Ordered list to preserve output order from the bash version
+# Ordered list of known layers — preserves output order from the bash version.
+# Used as both the canonical list and for set lookups via KNOWN_LAYERS_SET.
 KNOWN_LAYERS_ORDERED = [
     "routes", "controllers", "controller", "services", "service",
     "repositories", "repository", "models", "model", "middleware",
@@ -58,22 +53,7 @@ KNOWN_LAYERS_ORDERED = [
     "interceptor", "domain", "infrastructure", "adapter", "port",
     "presenter", "exception", "exceptions",
 ]
-
-DEBUG_LOG = "/tmp/thymus-debug.log"
-
-
-# ---------------------------------------------------------------------------
-# Debug logging
-# ---------------------------------------------------------------------------
-
-def debug_log(msg: str) -> None:
-    import datetime
-    ts = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    try:
-        with open(DEBUG_LOG, "a") as f:
-            f.write(f"[{ts}] detect-patterns.py: {msg}\n")
-    except OSError:
-        pass
+KNOWN_LAYERS_SET = set(KNOWN_LAYERS_ORDERED)
 
 
 # ---------------------------------------------------------------------------
@@ -146,7 +126,7 @@ def scan(project_root: str) -> dict:
 
         # detected_layers: check directory basename against known layers
         dir_basename = os.path.basename(dirpath)
-        if dir_basename in KNOWN_LAYERS:
+        if dir_basename in KNOWN_LAYERS_SET:
             detected_layers_set.add(dir_basename)
 
         for fname in filenames:

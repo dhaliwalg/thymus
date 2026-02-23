@@ -43,7 +43,7 @@ def get_git_commit():
 
 def build_history_entry(scan_json):
     """Build a JSONL history entry dict from scan JSON data."""
-    timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     files_checked = scan_json.get("files_checked", 0)
     violations = scan_json.get("violations", [])
@@ -127,7 +127,7 @@ def append_history(entry, thymus_dir=None):
 
 
 def main():
-    timestamp = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     debug_log("append-history.py: start")
 
     # Parse arguments
