@@ -11,7 +11,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -208,6 +207,50 @@ def file_in_scope(rel_path: str, invariant: dict) -> bool:
             return False
 
     return True
+
+
+# ---------------------------------------------------------------------------
+# Module grouping and import resolution (shared by graph builders)
+# ---------------------------------------------------------------------------
+
+
+def file_to_module(filepath):
+    """Map a file path to its module id (first 2 path components).
+
+    Examples:
+        src/routes/users.ts  -> src/routes
+        src/db/client.ts     -> src/db
+        utils.ts             -> utils
+        lib/foo/bar/baz.ts   -> lib/foo
+    """
+    parts = filepath.replace("\\", "/").split("/")
+    if len(parts) >= 3:
+        return parts[0] + "/" + parts[1]
+    elif len(parts) == 2:
+        return parts[0]
+    else:
+        name = parts[0]
+        dot = name.rfind(".")
+        if dot > 0:
+            return name[:dot]
+        return name
+
+
+def resolve_import(source_file, imp):
+    """Resolve an import specifier relative to the source file.
+
+    - Relative imports (starting with . or ..) are resolved against the
+      source file's directory using os.path.normpath.
+    - Non-relative imports are returned as-is.
+
+    Returns the resolved path (without extension).
+    """
+    if imp.startswith("."):
+        source_dir = os.path.dirname(source_file)
+        resolved = os.path.normpath(os.path.join(source_dir, imp))
+        resolved = resolved.replace("\\", "/")
+        return resolved
+    return imp
 
 
 # ---------------------------------------------------------------------------

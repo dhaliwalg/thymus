@@ -8,7 +8,7 @@ Usage: python3 extract-imports.py <filepath>
 Output: one import path per line to stdout
 
 Supports: JS/TS (state-machine parser), Python (ast module),
-          Go/Rust/Java (regex fallback with TODO markers).
+          Go/Rust/Java/Dart/C#/PHP/Ruby/Swift (regex fallback).
 """
 import sys
 import os

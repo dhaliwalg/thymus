@@ -14,65 +14,12 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "lib"))
+from core import file_to_module, resolve_import
 from utils import debug as _debug
 
 
 def debug(msg):
     _debug("build-adjacency.py", msg)
-
-
-# ---------------------------------------------------------------------------
-# Module grouping
-# ---------------------------------------------------------------------------
-
-def file_to_module(filepath):
-    """Map a file path to its module id (first 2 path components).
-
-    Examples:
-        src/routes/users.ts  -> src/routes
-        src/db/client.ts     -> src/db
-        utils.ts             -> utils
-        lib/foo/bar/baz.ts   -> lib/foo
-    """
-    parts = filepath.replace("\\", "/").split("/")
-    # Strip filename — only keep directory components
-    # For "src/routes/users.ts", parts = ["src", "routes", "users.ts"]
-    if len(parts) >= 3:
-        return parts[0] + "/" + parts[1]
-    elif len(parts) == 2:
-        # e.g. "src/utils.ts" -> module "src"
-        return parts[0]
-    else:
-        # Single-component: "utils.ts" -> module name is the file stem
-        name = parts[0]
-        # Strip extension for single files used as module id
-        dot = name.rfind(".")
-        if dot > 0:
-            return name[:dot]
-        return name
-
-
-# ---------------------------------------------------------------------------
-# Import resolution
-# ---------------------------------------------------------------------------
-
-def resolve_import(source_file, imp):
-    """Resolve an import specifier relative to the source file.
-
-    - Relative imports (starting with . or ..) are resolved against the
-      source file's directory using os.path.normpath.
-    - Non-relative imports are returned as-is.
-
-    Returns the resolved path (without extension).
-    """
-    if imp.startswith("."):
-        source_dir = os.path.dirname(source_file)
-        resolved = os.path.normpath(os.path.join(source_dir, imp))
-        # normpath on empty source_dir with relative import works correctly
-        # Ensure forward slashes
-        resolved = resolved.replace("\\", "/")
-        return resolved
-    return imp
 
 
 # ---------------------------------------------------------------------------

@@ -423,18 +423,20 @@ def main():
             pass
 
     # --- Score colors ---
-    score_color = "#30d158"
-    if score < 80:
-        score_color = "#ff9f0a"
     if score < 50:
         score_color = "#ff453a"
+    elif score < 80:
+        score_color = "#ff9f0a"
+    else:
+        score_color = "#30d158"
 
-    compliance_color = "#30d158"
     compliance_int = int(compliance)
-    if compliance_int < 80:
-        compliance_color = "#ff9f0a"
     if compliance_int < 50:
         compliance_color = "#ff453a"
+    elif compliance_int < 80:
+        compliance_color = "#ff9f0a"
+    else:
+        compliance_color = "#30d158"
 
     compliance_delta_class = ""
     if compliance_arrow == "\u2191":

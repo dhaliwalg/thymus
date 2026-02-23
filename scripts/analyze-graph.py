@@ -244,7 +244,7 @@ def detect_self_containment(modules, edges, min_confidence):
         mod_slug = module_id_to_slug(mod_id)
         rule_id = make_rule_id(mod_slug, "self-contained")
 
-        if len(targets) == 0:
+        if not targets:
             desc = f"{mod_id} has no external imports — enforce self-containment"
             rule = {
                 "id": rule_id,
