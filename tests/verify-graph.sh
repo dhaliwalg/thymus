@@ -111,6 +111,22 @@ if [ -d "$FIXTURE" ]; then
       echo "  ✗ graph.html missing module data"
       ((failed++)) || true
     fi
+    # Test: graph-summary.json sidecar exists and has expected fields
+    if [ -f "$FIXTURE/.thymus/graph-summary.json" ]; then
+      echo "  ✓ graph-summary.json sidecar exists"
+      ((passed++)) || true
+      if jq -e '.module_count > 0 and .edge_count >= 0 and has("violation_count") and has("top_modules")' "$FIXTURE/.thymus/graph-summary.json" > /dev/null 2>&1; then
+        echo "  ✓ graph-summary.json has expected fields"
+        ((passed++)) || true
+      else
+        echo "  ✗ graph-summary.json missing expected fields"
+        ((failed++)) || true
+      fi
+      rm -f "$FIXTURE/.thymus/graph-summary.json"
+    else
+      echo "  ✗ graph-summary.json sidecar missing"
+      ((failed++)) || true
+    fi
     rm -f "$FIXTURE/.thymus/graph.html"
   else
     echo "  ✗ did not create graph.html"

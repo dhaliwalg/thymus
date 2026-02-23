@@ -42,4 +42,9 @@ if [ "$PARSE_OK" != "ok" ]; then
 fi
 
 rm -f "${INVARIANTS_YML}.bak"
+
+# Clear invariants cache so the next hook picks up the new rule
+PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
+rm -f "/tmp/thymus-cache-${PROJECT_HASH}/invariants.json" "/tmp/thymus-cache-${PROJECT_HASH}/invariants-scan.json"
+
 echo "Thymus: Invariant added successfully to $(basename "$INVARIANTS_YML")"

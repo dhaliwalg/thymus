@@ -118,11 +118,5 @@ YAML_EOF
 
 The YAML block must use the indentation shown in the examples above (2 spaces + `- id:` for the entry, 4 spaces for fields, 6 spaces for list items).
 
-After saving, clear the invariants cache so the next hook invocation picks up the new rule:
-```bash
-PROJECT_HASH=$(echo "$PWD" | md5 -q 2>/dev/null || echo "$PWD" | md5sum | cut -d' ' -f1)
-rm -f "/tmp/thymus-cache-${PROJECT_HASH}/invariants.json" "/tmp/thymus-cache-${PROJECT_HASH}/invariants-scan.json"
-```
-
 Then confirm to the user: "Invariant `<id>` added. Thymus will enforce this rule on the next file edit."
 

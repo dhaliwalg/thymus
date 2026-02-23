@@ -292,6 +292,35 @@ def main():
 
     debug_log(f"generate-graph: wrote {output_file}")
 
+    # --- Write graph-summary.json sidecar ---
+    modules = graph_data.get("modules", [])
+    edges = graph_data.get("edges", [])
+    violation_edges = [e for e in edges if e.get("violation")]
+    top_modules = sorted(modules, key=lambda m: -m.get("file_count", 0))[:5]
+    summary = {
+        "graph_path": output_file,
+        "module_count": len(modules),
+        "edge_count": len(edges),
+        "violation_count": len(violation_edges),
+        "top_modules": [
+            {"id": m["id"], "file_count": m.get("file_count", 0), "violations": m.get("violations", 0)}
+            for m in top_modules
+        ],
+        "violation_edges": [
+            {"from": e["from"], "to": e["to"], "rules": e.get("rule_ids", [])}
+            for e in violation_edges
+        ],
+    }
+    summary_dir = os.path.join(cwd, ".thymus")
+    os.makedirs(summary_dir, exist_ok=True)
+    summary_path = os.path.join(summary_dir, "graph-summary.json")
+    try:
+        with open(summary_path, "w") as f:
+            json.dump(summary, f, indent=2)
+        debug_log(f"generate-graph: wrote sidecar {summary_path}")
+    except OSError as e:
+        debug_log(f"generate-graph: failed to write sidecar ({e})")
+
     # --- Print output path ---
     print(output_file)
 

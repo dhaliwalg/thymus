@@ -11,58 +11,46 @@ argument-hint: "[--diff]"
 
 Generate a full architectural health report. Follow these steps exactly:
 
-## Step 1: Run the full-project scan
+## Step 1: Generate the report
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan-project.sh $ARGUMENTS > /tmp/thymus-health-scan.json
+THYMUS_NO_OPEN=1 bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-report.sh $ARGUMENTS
 ```
 
-## Step 2: Check for history (debt projection)
+This runs the scan internally, writes `.thymus/report.html`, and writes a machine-readable sidecar at `.thymus/health-summary.json`.
 
-Count history snapshots:
+## Step 2: Read the summary
 
-```bash
-wc -l < ${PWD}/.thymus/history.jsonl 2>/dev/null || echo 0
-```
+Use the Read tool on `${PWD}/.thymus/health-summary.json`. This file contains:
 
-If there are 2 or more lines, invoke the `debt-projector` agent:
-- Pass it the path to `.thymus/history.jsonl`
-- Capture the JSON output as `PROJECTION`
+- `score` — health score (0-100)
+- `compliance` — file compliance percentage
+- `arrow` — trend direction
+- `trend_text` — human-readable trend description
+- `files_checked` — number of files scanned
+- `total_violations`, `errors`, `warnings` — violation counts
+- `violations` — list of violation objects (up to 30)
+- `report_path` — path to the full HTML report
 
-If fewer than 2 lines exist, set `PROJECTION` to empty string.
+## Step 3: Narrate the results
 
-## Step 3: Generate the HTML report
-
-```bash
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-report.sh \
-  --scan /tmp/thymus-health-scan.json \
-  [--projection '$PROJECTION']
-```
-
-Include `--projection` only if projection data is available.
-
-## Step 4: Narrate the results
-
-Read the scan JSON from `/tmp/thymus-health-scan.json` and the summary JSON from `generate-report.sh` stdout. Narrate a structured summary:
+From the summary JSON, narrate:
 
 ```
 Health Score: <score>/100 <arrow>
 
-Files scanned: <N>
-Violations: <total> (<errors> errors, <warnings> warnings)
+Files scanned: <files_checked>
+Violations: <total_violations> (<errors> errors, <warnings> warnings)
 
 Modules with violations:
-<list modules with violation counts — only show modules with violations>
+<group violations by module (first 2 path segments), list counts — only show modules with violations>
 
 Top violations:
-<list up to 5, most severe first>
+<list up to 5, most severe first — show rule, file, severity>
 
-Trend: <trend_text from generate-report.sh output>
-<if projection: velocity + 30-day projection + recommendation>
+Trend: <trend_text>
 
 Full report: .thymus/report.html
 ```
 
-If there are no violations, say: `No violations. Health score: 100/100`
-
-Clean up temp file: `rm -f /tmp/thymus-health-scan.json`
+If there are no violations, say: `No violations. Health score: <score>/100`

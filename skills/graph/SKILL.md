@@ -16,31 +16,31 @@ Generate an interactive dependency graph visualization. Follow these steps exact
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/generate-graph.sh
 ```
 
-The script will output the path to the generated HTML file.
+The script writes `.thymus/graph.html` (opens in browser) and a sidecar at `.thymus/graph-summary.json`.
 
-## Step 2: Open the graph
+## Step 2: Read the summary
 
-The graph opens automatically in the default browser. If it doesn't, tell the user:
+Use the Read tool on `${PWD}/.thymus/graph-summary.json`. This file contains:
 
-```
-Dependency graph written to .thymus/graph.html
-Open it in your browser to explore module relationships.
-```
+- `module_count` — number of modules detected
+- `edge_count` — number of cross-module edges
+- `violation_count` — number of edges with violations
+- `top_modules` — top 5 modules by file count, each with `id`, `file_count`, `violations`
+- `violation_edges` — list of violation edges with `from`, `to`, `rules`
 
 ## Step 3: Narrate the results
 
-Read the graph data and provide a brief summary:
-- Number of modules detected
-- Number of cross-module edges
-- Number of edges with violations (red edges)
-- Which modules have the most violations
+From the summary JSON, narrate:
 
-Example:
 ```
-Dependency Graph: 6 modules, 8 edges (2 violations)
+Dependency Graph: <module_count> modules, <edge_count> edges (<violation_count> violations)
 
+<if violation_edges:>
 Violation edges:
-  src/routes → src/db (boundary-routes-no-direct-db)
+  <from> -> <to> (<rules joined by comma>)
+
+<if no violations:>
+No boundary violations detected.
 
 Graph: .thymus/graph.html
 ```

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Thymus generate-report.py -- HTML health report generator.
 
-Usage: python3 generate-report.py --scan /path/to/scan.json [--projection '{"velocity":...}']
+Usage: python3 generate-report.py [--scan /path/to/scan.json] [--projection '{"velocity":...}']
 Output: writes .thymus/report.html, opens in browser, prints JSON summary to stdout
 
-Replaces generate-report.sh with zero subprocess overhead (except browser open).
+When --scan is omitted, runs the project scan internally (no separate scan step needed).
 Calls append-history IN-PROCESS.
 
 Python 3 stdlib only. No pip dependencies.
@@ -19,7 +19,14 @@ import sys
 
 # Add lib/ to path
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'lib'))
-from core import debug_log, get_append_history_mod
+from core import (
+    debug_log,
+    get_append_history_mod,
+    thymus_cache_dir,
+    load_invariants,
+    find_source_files,
+)
+from rules import eval_rule_for_file
 
 
 def _html_escape(s):
@@ -149,15 +156,40 @@ def main():
         else:
             i += 1
 
-    if not scan_file or not os.path.isfile(scan_file):
-        print("Thymus: --scan <file> is required and must exist", file=sys.stderr)
-        sys.exit(1)
-
-    debug_log(f"generate-report.py: scan={scan_file}")
-
-    # --- Read scan data ---
-    with open(scan_file) as f:
-        scan = json.load(f)
+    # --- Read or run scan data ---
+    if scan_file and os.path.isfile(scan_file):
+        debug_log(f"generate-report.py: scan={scan_file}")
+        with open(scan_file) as f:
+            scan = json.load(f)
+    else:
+        debug_log("generate-report.py: running scan internally")
+        invariants_yml = os.path.join(thymus_dir, "invariants.yml")
+        if not os.path.isfile(invariants_yml):
+            scan = {"violations": [], "stats": {"total": 0, "errors": 0, "warnings": 0}, "files_checked": 0, "scope": ""}
+        else:
+            cache_dir = thymus_cache_dir()
+            cache_path = os.path.join(cache_dir, "invariants-scan.json")
+            invariants_data = load_invariants(invariants_yml, cache_path)
+            invariants = invariants_data.get("invariants", [])
+            cwd = os.getcwd()
+            files = find_source_files(cwd)
+            violations_list = []
+            for rel_path in files:
+                abs_path = os.path.join(cwd, rel_path)
+                if not os.path.isfile(abs_path):
+                    continue
+                for inv in invariants:
+                    viols = eval_rule_for_file(abs_path, rel_path, inv)
+                    violations_list.extend(viols)
+            total_v = len(violations_list)
+            errors_v = sum(1 for v in violations_list if v.get("severity") == "error")
+            warnings_v = sum(1 for v in violations_list if v.get("severity") == "warning")
+            scan = {
+                "scope": "",
+                "files_checked": len(files),
+                "violations": violations_list,
+                "stats": {"total": total_v, "errors": errors_v, "warnings": warnings_v},
+            }
 
     total = scan.get("stats", {}).get("total", 0)
     errors = scan.get("stats", {}).get("errors", 0)
@@ -735,6 +767,27 @@ def main():
         f.write(html)
 
     debug_log(f"Report written: {report_file}")
+
+    # --- Write health-summary.json sidecar ---
+    sidecar = {
+        "score": score,
+        "compliance": compliance,
+        "arrow": arrow,
+        "trend_text": trend_text,
+        "files_checked": files_checked,
+        "total_violations": total,
+        "errors": errors,
+        "warnings": warnings,
+        "violations": violations[:30],
+        "report_path": report_file,
+    }
+    sidecar_path = os.path.join(thymus_dir, "health-summary.json")
+    try:
+        with open(sidecar_path, "w") as f:
+            json.dump(sidecar, f, indent=2)
+        debug_log(f"Sidecar written: {sidecar_path}")
+    except OSError as e:
+        debug_log(f"Failed to write sidecar: {e}")
 
     # Open in browser unless THYMUS_NO_OPEN is set
     if not os.environ.get("THYMUS_NO_OPEN"):
