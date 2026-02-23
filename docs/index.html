@@ -549,7 +549,7 @@ thymus scan --format text    <span class="comment"># human-readable (default in 
 thymus scan --format json    <span class="comment"># structured JSON</span>
 thymus scan --format github  <span class="comment"># GitHub annotations (::error / ::warning)</span>
 thymus scan --format sarif   <span class="comment"># SARIF 2.1.0 for GitHub Code Scanning</span></pre>
-          <p class="note">Requires bash 4.0+, python3, jq, git.</p>
+          <p class="note">Requires python3 and git.</p>
         </div>
         <div class="tab-panel" data-panel="pre-commit" hidden>
           <pre><span class="comment"># Symlink the hook (run from your project root)</span>
@@ -624,7 +624,7 @@ jobs:
           <span class="step-num">4</span>
           <div>
             <h3>Every edit, automatically</h3>
-            <p>A PostToolUse hook checks each file change against your rules in under two seconds. Warns Claude immediately if something drifts.</p>
+            <p>A PostToolUse hook checks each file change against your rules in milliseconds. Warns Claude immediately if something drifts.</p>
           </div>
         </li>
         <li>
@@ -789,7 +789,7 @@ jobs:
   </main>
 
   <footer>
-    <p class="zero-deps">Zero dependencies. Bash + Python + jq.</p>
+    <p class="zero-deps">Zero dependencies. Python 3 stdlib only.</p>
     <p class="editors">Claude Code &middot; VS Code &middot; Cursor &middot; Windsurf &middot; AGENTS.md &middot; Git hooks &middot; GitHub Actions &middot; SARIF &middot; Any editor.</p>
     <a href="https://github.com/dhaliwalg/thymus" class="gh-link">GitHub</a>
     <p class="credit">Built by Gurjit Dhaliwal</p>
