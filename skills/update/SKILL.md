@@ -26,12 +26,6 @@ If the directory isn't found, tell the user Thymus doesn't appear to be installe
 
 If the output says "Already up to date", tell the user they're on the latest version. Stop here.
 
-## Step 2: Clear the plugin cache
-
-```bash
-rm -rf "$HOME/.claude/plugins/cache/thymus"
-```
-
-## Step 3: Tell the user
+## Step 2: Tell the user
 
 Briefly summarize what changed, then: "**Restart Claude Code** for the update to take effect. Your project's invariants and history are untouched."
