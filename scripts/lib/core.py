@@ -49,9 +49,28 @@ def debug_log(msg: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _get_pwd() -> str:
+    """Get the current working directory WITHOUT resolving symlinks.
+
+    Bash's $PWD does not resolve symlinks (e.g., /var/folders/... on macOS),
+    but Python's os.getcwd() does (returning /private/var/folders/...).
+    To produce matching hashes, we read $PWD from the environment first.
+    """
+    pwd = os.environ.get('PWD', '')
+    if pwd and os.path.isdir(pwd):
+        return pwd
+    return os.getcwd()
+
+
 def thymus_project_hash() -> str:
-    """Return md5 hex digest of the current working directory path."""
-    return hashlib.md5(os.getcwd().encode()).hexdigest()
+    """Return md5 hex digest of the current working directory path.
+
+    Uses the same hash as bash: echo "$PWD" | md5 — which includes
+    a trailing newline and does NOT resolve symlinks in $PWD.
+    We must match this exactly so the Python and bash scripts share
+    the same cache directory.
+    """
+    return hashlib.md5((_get_pwd() + '\n').encode()).hexdigest()
 
 
 def thymus_cache_dir() -> str:
